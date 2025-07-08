@@ -9,12 +9,14 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "konva": "^9.3.21",
+    "canvas": "^3.0.0-rc3",
+    "jspdf": "^3.0.1",
+    "konva": "^9.2.0",
     "lucide-react": "^0.525.0",
     "next": "15.3.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-konva": "^19.0.7"
+    "react-konva": "^18.2.10"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
