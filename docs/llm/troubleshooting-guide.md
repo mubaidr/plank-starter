@@ -1,4 +1,4 @@
-# Floor Plan Tool - Troubleshooting Guide
+# Troubleshooting Guide
 
 ## Common Issues & Solutions
 
@@ -50,7 +50,7 @@ useEffect(() => {
 useEffect(() => {
   const handleResize = () => { /* ... */ };
   window.addEventListener('resize', handleResize);
-  
+
   return () => {
     window.removeEventListener('resize', handleResize);
   };
@@ -272,12 +272,12 @@ const cleanupObjects = () => {
 // Use object pooling
 class ShapePool {
   private pool: Map<string, Konva.Shape[]> = new Map();
-  
+
   get(type: string): Konva.Shape {
     const shapes = this.pool.get(type) || [];
     return shapes.pop() || this.createShape(type);
   }
-  
+
   release(type: string, shape: Konva.Shape) {
     shape.remove();
     const shapes = this.pool.get(type) || [];
@@ -294,7 +294,7 @@ class ShapePool {
 // Canvas debug overlay
 const addDebugOverlay = (stage: Konva.Stage) => {
   const debugLayer = new Konva.Layer();
-  
+
   // Show object bounds
   objects.forEach(obj => {
     const bounds = obj.getClientRect();
@@ -309,16 +309,16 @@ const addDebugOverlay = (stage: Konva.Stage) => {
     });
     debugLayer.add(rect);
   });
-  
+
   stage.add(debugLayer);
 };
 
 // State inspector
 const StateInspector = () => {
   const { state } = useFloorPlanContext();
-  
+
   if (process.env.NODE_ENV !== 'development') return null;
-  
+
   return (
     <div className="fixed top-0 right-0 bg-black text-white p-4 max-w-sm overflow-auto">
       <pre>{JSON.stringify(state, null, 2)}</pre>
@@ -333,11 +333,11 @@ const StateInspector = () => {
 class FPSMonitor {
   private frames = 0;
   private lastTime = performance.now();
-  
+
   update() {
     this.frames++;
     const currentTime = performance.now();
-    
+
     if (currentTime - this.lastTime >= 1000) {
       console.log(`FPS: ${this.frames}`);
       this.frames = 0;
@@ -409,7 +409,7 @@ export const createMockStage = () => {
   container.style.width = '800px';
   container.style.height = '600px';
   document.body.appendChild(container);
-  
+
   return new Konva.Stage({
     container,
     width: 800,

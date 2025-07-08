@@ -1,6 +1,6 @@
-# Project Overview - Floor Plan Tool
+# Project Overview
 
-## 1. Project Summary
+## Project Summary
 
 This is a web-based floor plan designer application built with Next.js 15, React 19, TypeScript, Konva.js, and Tailwind CSS 4. Its primary goal is to provide an intuitive, professional-grade tool for architects, interior designers, homeowners, real estate professionals, and contractors.
 

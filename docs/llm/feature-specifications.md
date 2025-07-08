@@ -1,12 +1,12 @@
-# Feature Specifications - Floor Plan Tool
+# Feature Specifications
 
-## 1. Introduction
+## Introduction
 
 This document specifies the features and functionalities of the web-based floor plan designer application, detailing user requirements and underlying data models.
 
-## 2. Core Functionality
+## Core Functionality
 
-### 2.1 Canvas Interaction
+### Canvas Interaction
 -   **Zoom**: Pinch-to-zoom (touch), scroll wheel (mouse), zoom buttons (+/-).
 -   **Pan**: Two-finger drag (touch), click-and-drag (mouse), pan buttons.
 -   **Selection**:
@@ -50,7 +50,7 @@ This document specifies the features and functionalities of the web-based floor 
 ### 2.6 Material Library
 -   Extensive library of textures and materials.
 -   Custom material import.
--   Material rendering in 3D view.
+-   Material rendering in 2d view.
 
 ## 3. Drawing Tools
 
@@ -649,24 +649,14 @@ const doorValidationRules: ValidationRule[] = [
 ### 6.2 Material Library
 -   Extensive library of textures and materials.
 -   Custom material import.
--   Material rendering in 3D view.
+-   Material rendering in 2D view.
 
 ### 6.3 Furniture & Fixtures Library
 -   Pre-built library of common furniture, appliances, and fixtures.
 -   Drag-and-drop placement.
 -   Custom object import.
 
-### 6.4 Collaboration
--   Real-time multi-user editing.
--   Commenting and annotation tools.
--   Version history and rollback.
-
 ### 6.5 Advanced Import/Export
 -   Full DXF/DWG import/export.
 -   Revit/BIM model import.
 -   Integration with other design software.
-
-### 6.6 AI-Powered Features
--   Auto-layout suggestions.
--   Design optimization.
--   Voice commands.

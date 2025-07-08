@@ -1,4 +1,4 @@
-# Floor Plan Tool - API Reference
+# API Reference
 
 ## Core Types & Interfaces
 

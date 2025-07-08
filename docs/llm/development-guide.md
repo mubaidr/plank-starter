@@ -1,6 +1,6 @@
-# Development Guide - Floor Plan Tool
+# Development Guide
 
-## 1. Code Standards & Best Practices
+## Code Standards & Best Practices
 
 ### TypeScript Guidelines
 - **Strict Mode**: Always use strict TypeScript configuration
@@ -80,7 +80,7 @@ interface ToolProps {
 export const ToolComponent: React.FC<ToolProps> = ({ isActive, onComplete }) => {
   const { state, dispatch } = useFloorPlanContext();
   const [isDrawing, setIsDrawing] = useState(false);
-  
+
   return (
     <div className="tool-component">
     </div>
@@ -94,7 +94,7 @@ const useCanvasEvents = (tool: ToolType) => {
   const handleMouseDown = useCallback((e: KonvaEventObject<MouseEvent>) => {
     const pos = e.target.getStage()?.getPointerPosition();
     if (!pos) return;
-    
+
     switch (tool) {
       case 'wall':
         startWallDrawing(pos);
@@ -104,7 +104,7 @@ const useCanvasEvents = (tool: ToolType) => {
         break;
     }
   }, [tool]);
-  
+
   return { handleMouseDown, handleMouseMove, handleMouseUp };
 };
 ```
@@ -115,7 +115,7 @@ const updateObject = (id: string, updates: Partial<FloorPlanObject>) => {
   dispatch({
     type: 'UPDATE_OBJECT',
     payload: { id, updates },
-    meta: { 
+    meta: {
       undoable: true,
       description: `Update ${updates.type || 'object'}`
     }
@@ -132,7 +132,7 @@ const setupLayers = (stage: Konva.Stage) => {
   const furnitureLayer = new Konva.Layer({ name: 'furniture' });
   const annotationLayer = new Konva.Layer({ name: 'annotation' });
   const uiLayer = new Konva.Layer({ name: 'ui' });
-  
+
   stage.add(backgroundLayer, gridLayer, structuralLayer, furnitureLayer, annotationLayer, uiLayer);
   return { backgroundLayer, gridLayer, structuralLayer, furnitureLayer, annotationLayer, uiLayer };
 };
@@ -145,17 +145,17 @@ const setupLayers = (stage: Konva.Stage) => {
 const useWallTool = () => {
   const [startPoint, setStartPoint] = useState<Point | null>(null);
   const [previewWall, setPreviewWall] = useState<Wall | null>(null);
-  
+
   const startWall = (point: Point) => {
     setStartPoint(snapToGrid(point));
   };
-  
+
   const updatePreview = (point: Point) => {
     if (!startPoint) return;
     const endPoint = snapToGrid(point);
     setPreviewWall(createWall(startPoint, endPoint));
   };
-  
+
   const finishWall = () => {
     if (previewWall) {
       addObject(previewWall);
@@ -163,7 +163,7 @@ const useWallTool = () => {
       setPreviewWall(null);
     }
   };
-  
+
   return { startWall, updatePreview, finishWall, previewWall };
 };
 ```
@@ -175,7 +175,7 @@ const useDoorPlacement = () => {
     const walls = getObjectsByType('wall') as Wall[];
     let nearestWall = null;
     let minDistance = Infinity;
-    
+
     walls.forEach(wall => {
       const distance = pointToLineDistance(point, [wall.startPoint, wall.endPoint]);
       if (distance < minDistance && distance < SNAP_THRESHOLD) {
@@ -183,10 +183,10 @@ const useDoorPlacement = () => {
         nearestWall = wall;
       }
     });
-    
+
     return nearestWall;
   };
-  
+
   const placeDoor = (point: Point) => {
     const wall = findNearestWall(point);
     if (wall) {
@@ -194,7 +194,7 @@ const useDoorPlacement = () => {
       addObject(door);
     }
   };
-  
+
   return { placeDoor, findNearestWall };
 };
 ```
@@ -204,25 +204,25 @@ const useDoorPlacement = () => {
 const useSelection = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectionBox, setSelectionBox] = useState<Bounds | null>(null);
-  
+
   const selectObject = (id: string, multiSelect = false) => {
     setSelectedIds(prev => {
       if (multiSelect) {
-        return prev.includes(id) 
+        return prev.includes(id)
           ? prev.filter(i => i !== id)
           : [...prev, id];
       }
       return [id];
     });
   };
-  
+
   const selectInArea = (bounds: Bounds) => {
     const objectsInArea = Object.values(state.objects)
       .filter(obj => boundsIntersect(getObjectBounds(obj), bounds))
       .map(obj => obj.id);
     setSelectedIds(objectsInArea);
   };
-  
+
   return { selectedIds, selectObject, selectInArea, clearSelection: () => setSelectedIds([]) };
 };
 ```
@@ -233,12 +233,12 @@ const useSelection = () => {
 ```typescript
 const geometryUtils = {
   distance: (p1: Point, p2: Point) => Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2),
-  
+
   midpoint: (p1: Point, p2: Point) => ({
     x: (p1.x + p2.x) / 2,
     y: (p1.y + p2.y) / 2
   }),
-  
+
   rotate: (point: Point, center: Point, angle: number) => {
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
@@ -249,7 +249,7 @@ const geometryUtils = {
       y: center.y + dx * sin + dy * cos
     };
   },
-  
+
   snapToGrid: (point: Point, gridSize: number) => ({
     x: Math.round(point.x / gridSize) * gridSize,
     y: Math.round(point.y / gridSize) * gridSize
@@ -269,25 +269,25 @@ const useFileOperations = () => {
       },
       ...state
     };
-    
+
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    
+
     const a = document.createElement('a');
     a.href = url;
     a.download = `${filename}.floorplan`;
     a.click();
-    
+
     URL.revokeObjectURL(url);
   };
-  
+
   const loadProject = async (file: File): Promise<FloorPlanState> => {
     const text = await file.text();
     const data = JSON.parse(text);
-    
+
     return validateAndMigrateProject(data);
   };
-  
+
   return { saveProject, loadProject };
 };
 ```
@@ -303,11 +303,11 @@ const useViewportCulling = () => {
       return boundsIntersect(bounds, viewport);
     });
   };
-  
+
   const updateViewport = (stage: Konva.Stage) => {
     const scale = stage.scaleX();
     const position = stage.position();
-    
+
     return {
       x: -position.x / scale,
       y: -position.y / scale,
@@ -315,7 +315,7 @@ const useViewportCulling = () => {
       height: stage.height() / scale
     };
   };
-  
+
   return { getVisibleObjects, updateViewport };
 };
 ```
@@ -325,13 +325,13 @@ const useViewportCulling = () => {
 const useObjectPool = <T extends Konva.Shape>(createFn: () => T) => {
   const pool: T[] = [];
   const active: T[] = [];
-  
+
   const acquire = (): T => {
     const obj = pool.pop() || createFn();
     active.push(obj);
     return obj;
   };
-  
+
   const release = (obj: T) => {
     const index = active.indexOf(obj);
     if (index > -1) {
@@ -340,7 +340,7 @@ const useObjectPool = <T extends Konva.Shape>(createFn: () => T) => {
       pool.push(obj);
     }
   };
-  
+
   return { acquire, release };
 };
 ```
@@ -383,7 +383,7 @@ export const {ToolName}Tool: React.FC<{ToolName}ToolProps> = ({ isActive }) => {
 
   React.useEffect(() => {
     if (!isActive) return;
-    
+
     const canvas = document.getElementById('floor-plan-canvas');
     if (!canvas) return;
 
@@ -436,7 +436,7 @@ import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 interface {ContextName}State {
 }
 
-type {ContextName}Action = 
+type {ContextName}Action =
   | { type: 'ACTION_TYPE'; payload: any }
   | { type: 'ANOTHER_ACTION' };
 
@@ -538,7 +538,7 @@ export const {ObjectName}: React.FC<{ObjectName}Props> = ({
         stroke={isSelected ? '#0066cc' : '#000000'}
         strokeWidth={isSelected ? 2 : 1}
       />
-      
+
       {isSelected && (
         <>
           <Circle
@@ -606,7 +606,7 @@ describe('{ComponentName}', () => {
     renderWithProviders(
       <{ComponentName} {...requiredProps} onAction={mockHandler} />
     );
-    
+
     fireEvent.click(screen.getByTestId('{interactive-element}'));
     expect(mockHandler).toHaveBeenCalledWith(/* expected args */);
   });
@@ -615,7 +615,7 @@ describe('{ComponentName}', () => {
     const { rerender } = renderWithProviders(
       <{ComponentName} {...requiredProps} />
     );
-    
+
     rerender(<{ComponentName} {...updatedProps} />);
     expect(screen.getByTestId('{component-test-id}')).toHaveTextContent(/* expected content */);
   });
@@ -634,9 +634,9 @@ export interface {TypeName} {
   visible: boolean;
   locked: boolean;
   layerId: string;
-  
+
   specificProperty: SpecificType;
-  
+
   metadata: {
     createdAt: Date;
     updatedAt: Date;
@@ -688,7 +688,7 @@ export default function {PageName}Page() {
             </h1>
           </div>
         </header>
-        
+
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <{ComponentName} />
         </main>
@@ -703,7 +703,7 @@ export default function {PageName}Page() {
 When generating code, use these patterns:
 
 1. **New Tool**: Use Tool Component + Custom Hook + Konva Component templates
-2. **New Feature**: Use Context Provider + Utility + Test templates  
+2. **New Feature**: Use Context Provider + Utility + Test templates
 3. **New Object Type**: Use Type Definition + Konva Component + Test templates
 4. **New Page**: Use Page Component + necessary providers
 
@@ -752,20 +752,20 @@ describe('WallTool', () => {
   it('should start drawing wall on canvas click', () => {
     const mockOnWallStart = jest.fn();
     renderWithContext(<WallTool onWallStart={mockOnWallStart} />);
-    
+
     const canvas = screen.getByTestId('floor-plan-canvas');
     fireEvent.mouseDown(canvas, { clientX: 100, clientY: 100 });
-    
+
     expect(mockOnWallStart).toHaveBeenCalledWith({ x: 100, y: 100 });
   });
 
   it('should show preview while drawing', () => {
     renderWithContext(<WallTool />);
-    
+
     const canvas = screen.getByTestId('floor-plan-canvas');
     fireEvent.mouseDown(canvas, { clientX: 100, clientY: 100 });
     fireEvent.mouseMove(canvas, { clientX: 200, clientY: 100 });
-    
+
     expect(screen.getByTestId('wall-preview')).toBeInTheDocument();
   });
 });
@@ -779,23 +779,23 @@ import { useCanvasInteraction } from '@/hooks/useCanvasInteraction';
 describe('useCanvasInteraction', () => {
   it('should handle zoom operations', () => {
     const { result } = renderHook(() => useCanvasInteraction());
-    
+
     act(() => {
       result.current.zoomIn();
     });
-    
+
     expect(result.current.zoom).toBeGreaterThan(1);
   });
 
   it('should constrain zoom within limits', () => {
     const { result } = renderHook(() => useCanvasInteraction());
-    
+
     act(() => {
       for (let i = 0; i < 20; i++) {
         result.current.zoomOut();
       }
     });
-    
+
     expect(result.current.zoom).toBeGreaterThanOrEqual(0.1);
   });
 });
@@ -818,7 +818,7 @@ describe('Geometry Utils', () => {
     it('should find intersection of two lines', () => {
       const line1: [Point, Point] = [{ x: 0, y: 0 }, { x: 10, y: 0 }];
       const line2: [Point, Point] = [{ x: 5, y: -5 }, { x: 5, y: 5 }];
-      
+
       const intersection = lineIntersection(line1, line2);
       expect(intersection).toEqual({ x: 5, y: 0 });
     });
@@ -826,7 +826,7 @@ describe('Geometry Utils', () => {
     it('should return null for parallel lines', () => {
       const line1: [Point, Point] = [{ x: 0, y: 0 }, { x: 10, y: 0 }];
       const line2: [Point, Point] = [{ x: 0, y: 5 }, { x: 10, y: 5 }];
-      
+
       expect(lineIntersection(line1, line2)).toBeNull();
     });
   });
@@ -842,11 +842,11 @@ import { FloorPlanProvider, useFloorPlanContext } from '@/context/FloorPlanConte
 
 const TestComponent = () => {
   const { state, addObject, selectObjects } = useFloorPlanContext();
-  
+
   return (
     <div>
       <div data-testid="object-count">{Object.keys(state.objects).length}</div>
-      <button 
+      <button
         onClick={() => addObject(mockWall)}
         data-testid="add-wall"
       >
@@ -863,11 +863,11 @@ describe('FloorPlan Context Integration', () => {
         <TestComponent />
       </FloorPlanProvider>
     );
-    
+
     expect(screen.getByTestId('object-count')).toHaveTextContent('0');
-    
+
     fireEvent.click(screen.getByTestId('add-wall'));
-    
+
     expect(screen.getByTestId('object-count')).toHaveTextContent('1');
   });
 });
@@ -885,14 +885,14 @@ describe('Canvas Tool Integration', () => {
         </ToolProvider>
       </FloorPlanProvider>
     );
-    
+
     fireEvent.click(screen.getByTestId('wall-tool'));
-    
+
     const canvas = screen.getByTestId('floor-plan-canvas');
     fireEvent.mouseDown(canvas, { clientX: 100, clientY: 100 });
     fireEvent.mouseMove(canvas, { clientX: 200, clientY: 100 });
     fireEvent.mouseUp(canvas);
-    
+
     await waitFor(() => {
       expect(screen.getByTestId('wall-object')).toBeInTheDocument();
     });
@@ -937,20 +937,20 @@ import { test, expect } from '@playwright/test';
 test.describe('Floor Plan Creation', () => {
   test('should create a basic floor plan', async ({ page }) => {
     await page.goto('/');
-    
+
     await page.click('[data-testid="wall-tool"]');
     await page.mouse.click(200, 200);
     await page.mouse.click(400, 200);
     await page.mouse.click(400, 400);
     await page.mouse.click(200, 400);
     await page.mouse.click(200, 200);
-    
+
     await page.click('[data-testid="door-tool"]');
     await page.click('[data-testid="wall-object"]:first-child');
-    
+
     await page.click('[data-testid="window-tool"]');
     await page.click('[data-testid="wall-object"]:nth-child(2)');
-    
+
     await expect(page.locator('[data-testid="wall-object"]')).toHaveCount(4);
     await expect(page.locator('[data-testid="door-object"]')).toHaveCount(1);
     await expect(page.locator('[data-testid="window-object"]')).toHaveCount(1);
@@ -961,19 +961,19 @@ test.describe('Floor Plan Creation', () => {
     await page.click('[data-testid="wall-tool"]');
     await page.mouse.click(200, 200);
     await page.mouse.click(400, 200);
-    
+
     await page.click('[data-testid="file-menu"]');
     await page.click('[data-testid="save-plan"]');
     await page.fill('[data-testid="filename-input"]', 'test-plan');
     await page.click('[data-testid="save-button"]');
-    
+
     await page.click('[data-testid="file-menu"]');
     await page.click('[data-testid="new-plan"]');
-    
+
     await page.click('[data-testid="file-menu"]');
     await page.click('[data-testid="load-plan"]');
     await page.click('[data-testid="plan-test-plan"]');
-    
+
     await expect(page.locator('[data-testid="wall-object"]')).toHaveCount(1);
   });
 });
@@ -986,23 +986,23 @@ import { test, expect } from '@playwright/test';
 test.describe('Performance', () => {
   test('should handle large floor plans', async ({ page }) => {
     await page.goto('/');
-    
+
     const startTime = Date.now();
-    
+
     for (let i = 0; i < 100; i++) {
       await page.click('[data-testid="wall-tool"]');
       await page.mouse.click(100 + i * 5, 100);
       await page.mouse.click(100 + i * 5, 200);
     }
-    
+
     const endTime = Date.now();
     const duration = endTime - startTime;
-    
+
     expect(duration).toBeLessThan(10000);
-    
+
     await page.click('[data-testid="select-tool"]');
     await page.mouse.click(150, 150);
-    
+
     await expect(page.locator('[data-testid="selected-object"]')).toBeVisible();
   });
 });
@@ -1045,13 +1045,13 @@ describe('Canvas Operations', () => {
       width: 800,
       height: 600,
     });
-    
+
     const canvasManager = new CanvasManager(mockStage);
     const wall = createMockWall();
-    
+
     canvasManager.addObject(wall);
     canvasManager.selectObject(wall.id);
-    
+
     expect(canvasManager.getSelectedObjects()).toContain(wall.id);
   });
 });
@@ -1141,28 +1141,28 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run unit tests
         run: npm run test:unit
-      
+
       - name: Run integration tests
         run: npm run test:integration
-      
+
       - name: Run E2E tests
         run: npm run test:e2e
-      
+
       - name: Upload coverage
         uses: codecov/codecov-action@v3
 ```
@@ -1193,7 +1193,7 @@ This comprehensive testing strategy ensures the floor plan tool is robust, relia
         wallRef.current.cache();
       }
     }, [wallData]); // Recache if wallData changes
-    
+
     <Konva.Line ref={wallRef} points={[...]} stroke="black" strokeWidth={2} />
     ```
 - **Benefit**: Drawing a cached shape is much faster than redrawing its individual components.
@@ -1205,7 +1205,7 @@ This comprehensive testing strategy ensures the floor plan tool is robust, relia
     // Instead of:
     // object1.x(10); layer.draw();
     // object2.x(20); layer.draw();
-    
+
     // Use:
     object1.x(10);
     object2.x(20);
@@ -1265,7 +1265,7 @@ This comprehensive testing strategy ensures the floor plan tool is robust, relia
         },
       },
     };
-    
+
     // Incorrect:
     // state.objects[action.payload.id].position = action.payload.newPosition;
     // return state;
