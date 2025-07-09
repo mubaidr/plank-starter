@@ -2,51 +2,127 @@
 import React, { useState } from 'react';
 import { useFloorPlanContext } from '@/context/FloorPlanContext';
 import { useToolContext } from '@/context/ToolContext';
+import { useFileOperations } from '@/context/FileOperationsContext';
 import ResponsiveToolbar from '@/components/ui/ResponsiveToolbar';
 import PropertiesPanel from '@/components/ui/PropertiesPanel';
 import SimpleCanvas from '@/components/canvas/SimpleCanvas';
 import LayersPanel from '@/components/ui/LayersPanel';
 import QuickActionsPanel from '@/components/ui/QuickActionsPanel';
+import ExportDialog from '@/components/ui/ExportDialog';
+import ImportDialog from '@/components/ui/ImportDialog';
 import { Settings, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ProjectData } from '@/types';
 
 const FloorPlanApp: React.FC = () => {
-  const { state, undo, redo, setZoom } = useFloorPlanContext();
+  const { state, undo, redo, setZoom, dispatch, toggleGrid, toggleSnap, toggleGuides } = useFloorPlanContext();
   const { activeTool, setActiveTool } = useToolContext();
+  const fileOperations = useFileOperations();
   
   // UI State
   const [showQuickActions, setShowQuickActions] = useState(true);
   const [showRightSidebar, setShowRightSidebar] = useState(true);
   const [rightSidebarTab, setRightSidebarTab] = useState<'properties' | 'layers'>('properties');
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+
+  // Helper function to convert FloorPlanState to ProjectData
+  const stateToProjectData = (): ProjectData => {
+    return {
+      version: '1.0.0',
+      metadata: {
+        name: state.project.name || 'Untitled Project',
+        description: '',
+        author: 'Floor Plan App User',
+        created: new Date().toISOString(),
+        modified: new Date().toISOString(),
+        scale: state.project.scale || 1,
+        units: state.project.unitSystem === 'imperial' ? 'ft' : 'm'
+      },
+      objects: Object.values(state.objects) as any[],
+      layers: Object.values(state.layers).map(layer => ({
+        id: layer.id,
+        name: layer.name,
+        visible: layer.visible,
+        locked: layer.locked,
+        color: layer.color
+      })),
+      measurements: Object.values(state.dimensions).map(dim => ({
+        id: dim.id,
+        type: dim.type,
+        startPoint: dim.startPoint,
+        endPoint: dim.endPoint,
+        centerPoint: dim.centerPoint,
+        points: dim.points,
+        value: dim.value,
+        label: dim.label,
+        units: dim.units,
+        style: dim.style
+      })),
+      settings: {
+        unitSystem: state.project.unitSystem,
+        displayFormat: 'decimal',
+        precision: 2,
+        gridSize: state.canvas.grid.size,
+        gridVisible: state.canvas.grid.visible,
+        snapToGrid: state.canvas.snap.snapToGrid,
+        snapToObjects: true,
+        backgroundImage: undefined
+      }
+    };
+  };
 
   // Handlers
-  const handleSave = () => {
-    console.log('Save functionality to be implemented');
-    // TODO: Implement save functionality
+  const handleSave = async () => {
+    try {
+      const projectData = stateToProjectData();
+      const timestamp = Date.now();
+      const projectKey = `project-${timestamp}`;
+      
+      await fileOperations.saveProject(projectData, 'local');
+      console.log('Project saved successfully');
+      
+      // Show success notification (you could add a toast notification here)
+      alert('Project saved successfully!');
+    } catch (error) {
+      console.error('Failed to save project:', error);
+      alert('Failed to save project. Please try again.');
+    }
   };
 
   const handleLoad = () => {
-    console.log('Load functionality to be implemented');
-    // TODO: Implement load functionality
+    setShowImportDialog(true);
   };
 
   const handleExport = () => {
-    console.log('Export functionality to be implemented');
-    // TODO: Implement export functionality
+    setShowExportDialog(true);
+  };
+
+  const handleProjectLoad = (projectData: ProjectData) => {
+    try {
+      // Convert ProjectData back to FloorPlanState format and dispatch LOAD_PROJECT
+      dispatch({ type: 'LOAD_PROJECT', payload: projectData });
+      setShowImportDialog(false);
+      console.log('Project loaded successfully');
+    } catch (error) {
+      console.error('Failed to load project:', error);
+      alert('Failed to load project. Please try again.');
+    }
   };
 
   const handleToggleGrid = () => {
-    console.log('Toggle grid functionality to be implemented');
-    // TODO: Implement grid toggle
+    toggleGrid();
+    console.log('Grid toggled:', !state.canvas.grid.visible);
   };
 
   const handleToggleSnap = () => {
-    console.log('Toggle snap functionality to be implemented');
-    // TODO: Implement snap toggle
+    toggleSnap();
+    console.log('Snap toggled:', !state.canvas.snap.enabled);
   };
 
   const handleToggleGuides = () => {
-    console.log('Toggle guides functionality to be implemented');
-    // TODO: Implement guides toggle
+    toggleGuides();
+    const guidesVisible = state.guides.length > 0 ? state.guides[0].visible : false;
+    console.log('Guides toggled:', !guidesVisible);
   };
 
   const handleZoomIn = () => {
@@ -210,6 +286,23 @@ const FloorPlanApp: React.FC = () => {
           </button>
         )}
       </div>
+
+      {/* File Operation Dialogs */}
+      {showExportDialog && (
+        <ExportDialog
+          isOpen={showExportDialog}
+          onClose={() => setShowExportDialog(false)}
+          projectData={stateToProjectData()}
+        />
+      )}
+
+      {showImportDialog && (
+        <ImportDialog
+          isOpen={showImportDialog}
+          onClose={() => setShowImportDialog(false)}
+          onProjectLoad={handleProjectLoad}
+        />
+      )}
     </div>
   );
 };

@@ -181,6 +181,9 @@ export type FloorPlanAction =
   | { type: 'ADD_GUIDE'; payload: Guide }
   | { type: 'REMOVE_GUIDE'; payload: string }
   | { type: 'UPDATE_GUIDE'; payload: { id: string; updates: Partial<Guide> } }
+  | { type: 'TOGGLE_GRID' }
+  | { type: 'TOGGLE_SNAP' }
+  | { type: 'TOGGLE_GUIDES' }
   | { type: 'UNDO' }
   | { type: 'REDO' }
   | { type: 'LOAD_PROJECT'; payload: unknown };

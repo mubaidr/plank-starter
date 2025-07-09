@@ -6,7 +6,8 @@ import {
   LayerState,
   Point,
   ViewType,
-  Dimension
+  Dimension,
+  Guide
 } from '@/types/floorPlanTypes';
 
 // Context Type Definition
@@ -24,6 +25,9 @@ interface FloorPlanContextType {
   setZoom: (zoom: number) => void;
   setPan: (pan: Point) => void;
   setViewType: (viewType: ViewType) => void;
+  toggleGrid: () => void;
+  toggleSnap: () => void;
+  toggleGuides: () => void;
 
   // Layer Management
   addLayer: (layer: Omit<LayerState, 'id'>) => void;
@@ -34,6 +38,11 @@ interface FloorPlanContextType {
   addDimension: (dimension: Dimension) => void;
   updateDimension: (id: string, updates: Partial<Dimension>) => void;
   deleteDimension: (id: string) => void;
+
+  // Guide Management
+  addGuide: (guide: Omit<Guide, 'id'>) => void;
+  updateGuide: (id: string, updates: Partial<Guide>) => void;
+  removeGuide: (id: string) => void;
 
   // History Management - Enhanced for unlimited undo/redo
   undo: () => void;
@@ -277,6 +286,24 @@ const floorPlanReducer = (state: FloorPlanState, action: FloorPlanAction): Floor
       return updateWithHistory({ dimensions: newDimensions });
     }
 
+    case 'ADD_GUIDE': {
+      const newGuides = [...state.guides, action.payload];
+      return updateWithHistory({ guides: newGuides });
+    }
+
+    case 'UPDATE_GUIDE': {
+      const { id, updates } = action.payload;
+      const newGuides = state.guides.map(guide => 
+        guide.id === id ? { ...guide, ...updates } : guide
+      );
+      return updateWithHistory({ guides: newGuides });
+    }
+
+    case 'REMOVE_GUIDE': {
+      const newGuides = state.guides.filter(guide => guide.id !== action.payload);
+      return updateWithHistory({ guides: newGuides });
+    }
+
     case 'UNDO': {
       if (state.history.past.length === 0) return state;
       
@@ -330,20 +357,103 @@ const floorPlanReducer = (state: FloorPlanState, action: FloorPlanAction): Floor
       };
     }
 
+    case 'TOGGLE_GRID': {
+      const newCanvas = {
+        ...state.canvas,
+        grid: {
+          ...state.canvas.grid,
+          visible: !state.canvas.grid.visible
+        }
+      };
+      return updateWithHistory({ canvas: newCanvas });
+    }
+
+    case 'TOGGLE_SNAP': {
+      const newCanvas = {
+        ...state.canvas,
+        snap: {
+          ...state.canvas.snap,
+          enabled: !state.canvas.snap.enabled
+        }
+      };
+      return updateWithHistory({ canvas: newCanvas });
+    }
+
+    case 'TOGGLE_GUIDES': {
+      const newGuides = state.guides.map(guide => ({
+        ...guide,
+        visible: !guide.visible
+      }));
+      return updateWithHistory({ guides: newGuides });
+    }
+
     case 'LOAD_PROJECT': {
-      const { history: payloadHistory, ...payloadWithoutHistory } = action.payload;
+      const projectData = action.payload as any; // ProjectData from file operations
       
-      return {
-        ...payloadWithoutHistory,
+      // Convert ProjectData to FloorPlanState format
+      const objects: Record<string, FloorPlanObject> = {};
+      projectData.objects?.forEach((obj: any) => {
+        objects[obj.id] = obj;
+      });
+      
+      const layers: Record<string, LayerState> = {};
+      projectData.layers?.forEach((layer: any) => {
+        layers[layer.id] = {
+          ...layer,
+          opacity: 1,
+          printable: true
+        };
+      });
+      
+      const dimensions: Record<string, Dimension> = {};
+      projectData.measurements?.forEach((measurement: any) => {
+        dimensions[measurement.id] = {
+          ...measurement,
+          units: measurement.units as any
+        };
+      });
+      
+      const newState: FloorPlanState = {
+        objects,
+        layers: Object.keys(layers).length > 0 ? layers : state.layers, // Keep existing layers if none provided
+        canvas: {
+          ...state.canvas,
+          grid: {
+            ...state.canvas.grid,
+            size: projectData.settings?.gridSize || state.canvas.grid.size,
+            visible: projectData.settings?.gridVisible ?? state.canvas.grid.visible,
+            snap: projectData.settings?.snapToGrid ?? state.canvas.grid.snap
+          },
+          backgroundImage: projectData.settings?.backgroundImage ? {
+            src: projectData.settings.backgroundImage.src,
+            opacity: projectData.settings.backgroundImage.opacity,
+            scale: projectData.settings.backgroundImage.scale,
+            position: projectData.settings.backgroundImage.position
+          } : undefined
+        },
+        project: {
+          ...state.project,
+          name: projectData.metadata?.name || 'Untitled Project',
+          description: projectData.metadata?.description || '',
+          scale: projectData.metadata?.scale || 1,
+          units: projectData.metadata?.units || 'ft'
+        },
+        dimensions,
+        guides: state.guides, // Keep existing guides
         history: {
           past: [],
-          present: payloadWithoutHistory,
+          present: {} as any, // Will be set below
           future: [],
-          maxHistorySize: -1, // Unlimited
+          maxHistorySize: -1,
           canUndo: false,
           canRedo: false
         }
       };
+      
+      // Set the present state
+      newState.history.present = createStateSnapshot(newState);
+      
+      return newState;
     }
 
     default:
@@ -388,6 +498,18 @@ export const FloorPlanProvider: React.FC<{ children: ReactNode }> = ({ children 
     dispatch({ type: 'SET_VIEW_TYPE', payload: viewType });
   }, []);
 
+  const toggleGrid = useCallback(() => {
+    dispatch({ type: 'TOGGLE_GRID' });
+  }, []);
+
+  const toggleSnap = useCallback(() => {
+    dispatch({ type: 'TOGGLE_SNAP' });
+  }, []);
+
+  const toggleGuides = useCallback(() => {
+    dispatch({ type: 'TOGGLE_GUIDES' });
+  }, []);
+
   // Layer Management Functions
   const addLayer = useCallback((layer: Omit<LayerState, 'id'>) => {
     dispatch({ type: 'ADD_LAYER', payload: layer });
@@ -412,6 +534,25 @@ export const FloorPlanProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   const deleteDimension = useCallback((id: string) => {
     dispatch({ type: 'DELETE_DIMENSION', payload: id });
+  }, []);
+
+  // Guide Management Functions
+  const addGuide = useCallback((guide: Omit<Guide, 'id'>) => {
+    const newGuide: Guide = {
+      ...guide,
+      id: `guide-${Date.now()}`,
+      color: guide.color || '#3B82F6',
+      visible: guide.visible ?? true
+    };
+    dispatch({ type: 'ADD_GUIDE', payload: newGuide });
+  }, []);
+
+  const updateGuide = useCallback((id: string, updates: Partial<Guide>) => {
+    dispatch({ type: 'UPDATE_GUIDE', payload: { id, updates } });
+  }, []);
+
+  const removeGuide = useCallback((id: string) => {
+    dispatch({ type: 'REMOVE_GUIDE', payload: id });
   }, []);
 
   // Enhanced History Management Functions
@@ -444,12 +585,18 @@ export const FloorPlanProvider: React.FC<{ children: ReactNode }> = ({ children 
     setZoom,
     setPan,
     setViewType,
+    toggleGrid,
+    toggleSnap,
+    toggleGuides,
     addLayer,
     updateLayer,
     deleteLayer,
     addDimension,
     updateDimension,
     deleteDimension,
+    addGuide,
+    updateGuide,
+    removeGuide,
     undo,
     redo,
     canUndo,
