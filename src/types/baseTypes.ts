@@ -7,7 +7,7 @@ export interface BaseObject {
   visible: boolean;
   locked: boolean;
   layerId: string;
-  properties: Record<string, any>;
+  properties: Record<string, unknown>;
   metadata: {
     createdAt: Date;
     updatedAt: Date;

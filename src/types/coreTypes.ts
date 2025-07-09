@@ -3,6 +3,26 @@ export interface Point {
   y: number;
 }
 
+export type ToolType = 
+  | 'select' 
+  | 'wall' 
+  | 'door' 
+  | 'window' 
+  | 'room' 
+  | 'text' 
+  | 'dimension' 
+  | 'measure' 
+  | 'pan' 
+  | 'zoom'
+  | 'line'
+  | 'rectangle'
+  | 'circle'
+  | 'section'
+  | 'lasso'
+  | 'move'
+  | 'rotate'
+  | 'roof';
+
 export interface Metadata {
   createdAt: Date;
   updatedAt: Date;
@@ -20,6 +40,6 @@ export interface BaseObject {
   visible: boolean;
   locked: boolean;
   layerId: string;
-  properties: Record<string, any>;
+  properties: Record<string, unknown>;
   metadata: Metadata;
 }

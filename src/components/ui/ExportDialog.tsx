@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Download, X, FileText, Image, Code, Settings } from 'lucide-react';
 import { FileOperations, PDFExportOptions, ImageExportOptions, SVGExportOptions, ProjectData } from '../../utils/fileOperations';
 

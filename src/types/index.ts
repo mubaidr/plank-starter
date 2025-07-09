@@ -1,10 +1,12 @@
 import { z } from 'zod';
 
 // Re-export all type definitions
+export * from './baseTypes';
+export * from './coreTypes';
+export * from './floorPlanTypes';
 export * from './electricalTypes';
 export * from './plumbingTypes';
 export * from './hvacTypes';
-export * from './floorPlanTypes';
 export * from './mepTypes';
 
 // Base object interface
@@ -13,11 +15,11 @@ export interface FloorPlanObject {
   type: string;
   position: { x: number; y: number };
   rotation: number;
-  scale: { x:极 number; y: number };
+  scale: { x: number; y: number };
   visible: boolean;
   locked: boolean;
   layerId: string;
-  properties: Record<string, any>;
+  properties: Record<string, unknown>;
   metadata: {
     createdAt: Date;
     updatedAt: Date;
@@ -57,7 +59,7 @@ export interface ProjectData {
     value: number;
     label: string;
     units: string;
-    style: Record<string, any>;
+    style: Record<string, unknown>;
   }>;
   settings: {
     unitSystem: 'imperial' | 'metric';
@@ -117,7 +119,7 @@ export const ProjectDataSchema = z.object({
     id: z.string(),
     type: z.enum(['linear', 'angular', 'area', 'radius']),
     startPoint: z.object({ x: z.number(), y: z.number() }),
-    endPoint: z.object({ x: z.number(), y: z极.number() }).optional(),
+    endPoint: z.object({ x: z.number(), y: z.number() }).optional(),
     centerPoint: z.object({ x: z.number(), y: z.number() }).optional(),
     points: z.array(z.object({ x: z.number(), y: z.number() })).optional(),
     value: z.number(),

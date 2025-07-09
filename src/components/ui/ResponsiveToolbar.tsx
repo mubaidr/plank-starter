@@ -33,7 +33,7 @@ import {
   Settings
 } from 'lucide-react';
 
-export type ToolType = 'select' | 'lasso' | 'rectangle' | 'circle' | 'line' | 'wall' | 'door' | 'window' | 'room' | 'text' | 'roof' | 'move' | 'rotate' | 'pan' | 'measure' | 'section';
+import { ToolType } from '@/types/coreTypes';
 
 interface ResponsiveToolbarProps {
   activeTool: ToolType;

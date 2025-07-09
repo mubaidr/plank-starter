@@ -10,7 +10,7 @@ import RoomManagementPanel from '@/components/ui/RoomManagementPanel';
 import GuidesPanel from '@/components/ui/GuidesPanel';
 import { useValidationRules } from '@/hooks/useValidationRules';
 import ValidationPanel from '@/components/ui/ValidationPanel';
-import ValidationIndicator from '@/components/ui/ValidationIndicator';
+// import ValidationIndicator from '@/components/ui/ValidationIndicator';
 import ValidationMarkers from '@/components/ui/ValidationMarkers';
 import StatusBar from '@/components/ui/StatusBar';
 import FloatingPanels from '@/components/ui/FloatingPanels';
@@ -48,11 +48,11 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({
   // Section views state
   const [showSectionPanel, setShowSectionPanel] = React.useState(false);
 
-  const objects = Object.values(state.objects);
-  const zoom = state.canvas.viewport.zoom;
-  const pan = state.canvas.viewport.pan;
-  const gridVisible = state.canvas.grid.visible;
-  const gridSize = state.canvas.grid.size;
+  const _objects = Object.values(state.objects);
+  const _zoom = state.canvas.viewport.zoom;
+  const _pan = state.canvas.viewport.pan;
+  const _gridVisible = state.canvas.grid.visible;
+  const _gridSize = state.canvas.grid.size;
 
   // Touch gesture support
   const { touchHandlers, isGesturing } = useTouchGestures({
@@ -149,7 +149,7 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({
   });
 
   // Validation handlers
-  const handleIssueClick = React.useCallback((issue: any) => {
+  const _handleIssueClick = React.useCallback((issue: any) => {
     // Focus on the issue location
     if (issue.position) {
       // Could implement camera movement to focus on issue
@@ -162,13 +162,13 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({
     }
   }, [selectObjects]);
 
-  const handleRuleToggle = React.useCallback((ruleId: string, enabled: boolean) => {
+  const _handleRuleToggle = React.useCallback((ruleId: string, enabled: boolean) => {
     // Update validation rule state
     console.log('Toggle rule:', ruleId, enabled);
     // This would need to be implemented in the validation hook
   }, []);
 
-  const handleAutoFix = React.useCallback((issue: any) => {
+  const _handleAutoFix = React.useCallback((issue: any) => {
     if (issue.autoFix) {
       issue.autoFix();
       // Re-run validation after auto-fix
@@ -178,7 +178,7 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({
 
   // Keyboard event handling for guides and rooms
   React.useEffect(() => {
-    const handleKeyDownEvent = (e: KeyboardEvent) => {
+    const _handleKeyDownEvent = (e: KeyboardEvent) => {
       handleKeyDown(e);
       handleRoomKeyDown(e);
     };
@@ -188,18 +188,18 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({
   }, [handleKeyDown, handleRoomKeyDown]);
 
   // Mouse wheel zoom support
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+  const _handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.max(0.1, Math.min(10, zoom * zoomFactor));
+    const _zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    const _newZoom = Math.max(0.1, Math.min(10, zoom * zoomFactor));
     setZoom(newZoom);
   };
 
   // Mouse move tracking for guides
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left - pan.x) / zoom;
-    const y = (e.clientY - rect.top - pan.y) / zoom;
+  const _handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const _rect = e.currentTarget.getBoundingClientRect();
+    const _x = (e.clientX - rect.left - pan.x) / zoom;
+    const _y = (e.clientY - rect.top - pan.y) / zoom;
     setCurrentMousePos({ x, y });
 
     // Handle guide creation
@@ -214,17 +214,17 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({
     }
   };
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const _handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // Don't handle clicks during touch gestures or lasso selection
     if (isGesturing || isLassoActive) return;
     
-    const rect = e.currentTarget.getBoundingClientRect();
+    const _rect = e.currentTarget.getBoundingClientRect();
     let x = (e.clientX - rect.left - pan.x) / zoom;
     let y = (e.clientY - rect.top - pan.y) / zoom;
 
     // Apply snap to guides if enabled
     if (snapToGuidesEnabled) {
-      const snapResult = snapToGuides({ x, y });
+      const _snapResult = snapToGuides({ x, y });
       if (snapResult.snapped) {
         x = snapResult.snapPoint.x;
         y = snapResult.snapPoint.y;
@@ -253,7 +253,7 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({
       onRoomToolClick(x, y);
     } else if (activeTool === 'rectangle') {
       // Create a simple rectangle
-      const newObject = {
+      const _newObject = {
         id: `rect-${Date.now()}`,
         type: 'rectangle' as const,
         position: { x, y },
@@ -421,8 +421,8 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({
               {/* Close indicator */}
               {currentRoom.points.length >= 3 && currentMousePos && (
                 (() => {
-                  const startPoint = currentRoom.points[0];
-                  const distance = Math.sqrt(
+                  const _startPoint = currentRoom.points[0];
+                  const _distance = Math.sqrt(
                     Math.pow(currentMousePos.x - startPoint.x, 2) + 
                     Math.pow(currentMousePos.y - startPoint.y, 2)
                   );
@@ -452,7 +452,7 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({
           {sectionLines.map((sectionLine) => {
             if (!sectionLine.visible) return null;
             
-            const arrowPoints = getArrowPoints(sectionLine);
+            const _arrowPoints = getArrowPoints(sectionLine);
             
             return (
               <g key={sectionLine.id}>

@@ -184,7 +184,14 @@ const FloorPlanApp: React.FC = () => {
                 )}
                 {rightSidebarTab === 'layers' && (
                   <div className="h-full">
-                    <LayersPanel />
+                    <LayersPanel 
+          layers={Object.values(state.layers)}
+          activeLayerId={Object.keys(state.layers)[0]}
+          onLayerUpdate={() => {}}
+          onLayerAdd={() => {}}
+          onLayerDelete={() => {}}
+          onLayerSelect={() => {}}
+        />
                   </div>
                 )}
               </div>

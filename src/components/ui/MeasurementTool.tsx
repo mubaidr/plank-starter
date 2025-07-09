@@ -50,376 +50,232 @@ const MeasurementTool: React.FC<MeasurementToolProps> = ({
     autoLabel: true
   });
 
-  const unitConversions = {
-    px: 1,
-    ft: pixelsPerUnit,
-    in: pixelsPerUnit / 12,
-    m: pixelsPerUnit * 3.28084,
-    cm: pixelsPerUnit * 3.28084 / 100
+  const formatValue = (value: number, units: string, precision: number): string => {
+    const convertedValue = value / pixelsPerUnit;
+    return `${convertedValue.toFixed(precision)} ${units}`;
   };
-
-  const convertPixelsToUnits = (pixels: number, targetUnit: string): number => {
-    const conversion = unitConversions[targetUnit as keyof typeof unitConversions] || 1;
-    return pixels / conversion;
-  };
-
-  // const formatMeasurement = (value: number, units: string, precision: number): string => {
-    const convertedValue = convertPixelsToUnits(value, units);
-    
-    if (units === 'ft') {
-      const feet = Math.floor(convertedValue);
-      const inches = Math.round((convertedValue - feet) * 12);
-      if (inches === 0) {
-        return `${feet}'`;
-      } else if (feet === 0) {
-        return `${inches}"`;
-      } else {
-        return `${feet}'-${inches}"`;
-      }
-    } else if (units === 'in') {
-      return `${convertedValue.toFixed(precision)}"`;
-    } else if (units === 'm') {
-      return `${convertedValue.toFixed(precision)}m`;
-    } else if (units === 'cm') {
-      return `${convertedValue.toFixed(precision)}cm`;
-    } else {
-      return `${convertedValue.toFixed(precision)}px`;
-    }
-  };
-
-  // const calculateLinearDistance = (start: { x: number; y: number }, end: { x: number; y: number }): number => {
-  //   return Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
-  // };
-
-  // const calculateAngle = (center: { x: number; y: number }, point1: { x: number; y: number }, point2: { x: number; y: number }): number => {
-  //   const angle1 = Math.atan2(point1.y - center.y, point1.x - center.x);
-  //   const angle2 = Math.atan2(point2.y - center.y, point2.x - center.x);
-  //   let angle = Math.abs(angle2 - angle1);
-  //   if (angle > Math.PI) angle = 2 * Math.PI - angle;
-  //   return angle * (180 / Math.PI);
-  // };
-
-  // const calculatePolygonArea = (points: Array<{ x: number; y: number }>): number => {
-  //   if (points.length < 3) return 0;
-  //   let area = 0;
-  //   for (let i = 0; i < points.length; i++) {
-  //     const j = (i + 1) % points.length;
-  //     area += points[i].x * points[j].y;
-  //     area -= points[j].x * points[i].y;
-  //   }
-  //   return Math.abs(area) / 2;
-  // };
 
   const deleteMeasurement = (id: string) => {
-    onMeasurementsChange(measurements.filter(m => m.id !== id));
+    const updatedMeasurements = measurements.filter(m => m.id !== id);
+    onMeasurementsChange(updatedMeasurements);
   };
 
-  const updateMeasurementStyle = (id: string, styleUpdates: Partial<Measurement['style']>) => {
+  const updateMeasurement = (id: string, updates: Partial<Measurement>) => {
     const updatedMeasurements = measurements.map(m => 
-      m.id === id 
-        ? { ...m, style: { ...m.style, ...styleUpdates } }
-        : m
+      m.id === id ? { ...m, ...updates } : m
     );
     onMeasurementsChange(updatedMeasurements);
   };
 
-  const getMeasurementStats = () => {
-    const stats = {
-      total: measurements.length,
-      linear: measurements.filter(m => m.type === 'linear').length,
-      angular: measurements.filter(m => m.type === 'angular').length,
-      area: measurements.filter(m => m.type === 'area').length,
-      radius: measurements.filter(m => m.type === 'radius').length
-    };
-    return stats;
-  };
-
-  const stats = getMeasurementStats();
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex items-center space-x-2">
-            <Ruler className="w-5 h-5 text-blue-500" />
-            <h3 className="text-lg font-semibold text-gray-900">Measurements & Dimensions</h3>
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center gap-2">
+            <Ruler className="w-5 h-5" />
+            <h2 className="text-lg font-semibold">Measurement Tool</h2>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className={`p-2 rounded-md transition-colors ${
-                showSettings ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'
-              }`}
-              title="Measurement Settings"
+              className="p-2 hover:bg-gray-100 rounded"
             >
-              <Settings size={20} />
+              <Settings className="w-4 h-4" />
             </button>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="p-2 hover:bg-gray-100 rounded"
             >
-              <X size={20} />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        <div className="flex h-[70vh]">
-          {/* Measurements List */}
+        <div className="flex h-[calc(90vh-120px)]">
           <div className="flex-1 p-4 overflow-y-auto">
-            <div className="mb-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Active Measurements</h4>
-              <div className="grid grid-cols-4 gap-2 text-xs">
-                <div className="bg-blue-50 rounded p-2 text-center">
-                  <div className="font-semibold text-blue-900">{stats.total}</div>
-                  <div className="text-blue-600">Total</div>
-                </div>
-                <div className="bg-green-50 rounded p-2 text-center">
-                  <div className="font-semibold text-green-900">{stats.linear}</div>
-                  <div className="text-green-600">Linear</div>
-                </div>
-                <div className="bg-purple-50 rounded p-2 text-center">
-                  <div className="font-semibold text-purple-900">{stats.angular}</div>
-                  <div className="text-purple-600">Angular</div>
-                </div>
-                <div className="bg-orange-50 rounded p-2 text-center">
-                  <div className="font-semibold text-orange-900">{stats.area}</div>
-                  <div className="text-orange-600">Area</div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium">Measurements ({measurements.length})</h3>
+                <div className="flex items-center gap-2">
+                  <Calculator className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm text-gray-500">
+                    Total: {measurements.length} measurements
+                  </span>
                 </div>
               </div>
-            </div>
 
-            <div className="space-y-2">
               {measurements.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  <Calculator className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-sm">No measurements yet</p>
-                  <p className="text-xs">Use the measure tool to add dimensions</p>
+                  <Ruler className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>No measurements yet</p>
+                  <p className="text-sm">Use the measurement tools to add measurements</p>
                 </div>
               ) : (
-                measurements.map((measurement) => (
-                  <div
-                    key={measurement.id}
-                    className={`border rounded-lg p-3 transition-colors cursor-pointer ${
-                      selectedMeasurement === measurement.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    onClick={() => setSelectedMeasurement(
-                      selectedMeasurement === measurement.id ? null : measurement.id
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: measurement.style.color }}
-                        />
-                        <span className="text-sm font-medium capitalize">
-                          {measurement.type}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm font-semibold">
-                          {measurement.label}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteMeasurement(measurement.id);
-                          }}
-                          className="text-red-400 hover:text-red-600 transition-colors"
-                          title="Delete measurement"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    </div>
-                    
-                    {selectedMeasurement === measurement.id && (
-                      <div className="mt-3 pt-3 border-t border-gray-200">
-                        <div className="grid grid-cols-2 gap-3 text-xs">
-                          <div>
-                            <label className="block text-gray-600 mb-1">Color</label>
-                            <input
-                              type="color"
-                              value={measurement.style.color}
-                              onChange={(e) => updateMeasurementStyle(measurement.id, { color: e.target.value })}
-                              className="w-full h-6 rounded border"
-                            />
+                <div className="space-y-2">
+                  {measurements.map((measurement) => (
+                    <div
+                      key={measurement.id}
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                        selectedMeasurement === measurement.id
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => setSelectedMeasurement(
+                        selectedMeasurement === measurement.id ? null : measurement.id
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium capitalize">
+                            {measurement.type} Measurement
                           </div>
-                          <div>
-                            <label className="block text-gray-600 mb-1">Text Position</label>
-                            <select
-                              value={measurement.style.textPosition}
-                              onChange={(e) => updateMeasurementStyle(measurement.id, { 
-                                textPosition: e.target.value as 'above' | 'below' | 'center' 
-                              })}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                            >
-                              <option value="above">Above</option>
-                              <option value="center">Center</option>
-                              <option value="below">Below</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-gray-600 mb-1">Arrow Style</label>
-                            <select
-                              value={measurement.style.arrowStyle}
-                              onChange={(e) => updateMeasurementStyle(measurement.id, { 
-                                arrowStyle: e.target.value as 'arrow' | 'dot' | 'slash' 
-                              })}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                            >
-                              <option value="arrow">Arrow</option>
-                              <option value="dot">Dot</option>
-                              <option value="slash">Slash</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="flex items-center space-x-1">
-                              <input
-                                type="checkbox"
-                                checked={measurement.style.showExtensionLines}
-                                onChange={(e) => updateMeasurementStyle(measurement.id, { 
-                                  showExtensionLines: e.target.checked 
-                                })}
-                                className="rounded"
-                              />
-                              <span className="text-gray-600">Extension Lines</span>
-                            </label>
+                          <div className="text-sm text-gray-600">
+                            {measurement.label || formatValue(measurement.value, measurement.units, measurement.precision)}
                           </div>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-4 h-4 rounded"
+                            style={{ backgroundColor: measurement.style.color }}
+                          />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteMeasurement(measurement.id);
+                            }}
+                            className="p-1 hover:bg-red-100 rounded text-red-600"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
 
-          {/* Settings Panel */}
           {showSettings && (
-            <div className="w-80 border-l border-gray-200 p-4 bg-gray-50">
-              <h4 className="text-sm font-medium text-gray-700 mb-4">Default Settings</h4>
+            <div className="w-80 border-l bg-gray-50 p-4 overflow-y-auto">
+              <h3 className="font-medium mb-4">Measurement Settings</h3>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Default Units
-                  </label>
+                  <label className="block text-sm font-medium mb-1">Default Units</label>
                   <select
                     value={measurementSettings.units}
-                    onChange={(e) => setMeasurementSettings(prev => ({ 
-                      ...prev, 
-                      units: e.target.value as typeof prev.units 
+                    onChange={(e) => setMeasurementSettings(prev => ({
+                      ...prev,
+                      units: e.target.value as any
                     }))}
-                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
+                    className="w-full p-2 border rounded"
                   >
-                    <option value="ft">Feet (ft)</option>
-                    <option value="in">Inches (in)</option>
-                    <option value="m">Meters (m)</option>
-                    <option value="cm">Centimeters (cm)</option>
-                    <option value="px">Pixels (px)</option>
+                    <option value="ft">Feet</option>
+                    <option value="in">Inches</option>
+                    <option value="m">Meters</option>
+                    <option value="cm">Centimeters</option>
+                    <option value="px">Pixels</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Precision: {measurementSettings.precision} decimal places
-                  </label>
+                  <label className="block text-sm font-medium mb-1">Precision</label>
                   <input
-                    type="range"
+                    type="number"
                     min="0"
                     max="4"
                     value={measurementSettings.precision}
-                    onChange={(e) => setMeasurementSettings(prev => ({ 
-                      ...prev, 
-                      precision: Number(e.target.value) 
+                    onChange={(e) => setMeasurementSettings(prev => ({
+                      ...prev,
+                      precision: parseInt(e.target.value)
                     }))}
-                    className="w-full"
+                    className="w-full p-2 border rounded"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Default Color
-                  </label>
+                  <label className="block text-sm font-medium mb-1">Color</label>
                   <input
                     type="color"
                     value={measurementSettings.color}
-                    onChange={(e) => setMeasurementSettings(prev => ({ 
-                      ...prev, 
-                      color: e.target.value 
+                    onChange={(e) => setMeasurementSettings(prev => ({
+                      ...prev,
+                      color: e.target.value
                     }))}
-                    className="w-full h-8 rounded border"
+                    className="w-full p-2 border rounded h-10"
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={measurementSettings.showExtensionLines}
-                      onChange={(e) => setMeasurementSettings(prev => ({ 
-                        ...prev, 
-                        showExtensionLines: e.target.checked 
-                      }))}
-                      className="rounded"
-                    />
-                    <span className="text-xs text-gray-700">Show Extension Lines</span>
-                  </label>
-
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={measurementSettings.autoLabel}
-                      onChange={(e) => setMeasurementSettings(prev => ({ 
-                        ...prev, 
-                        autoLabel: e.target.checked 
-                      }))}
-                      className="rounded"
-                    />
-                    <span className="text-xs text-gray-700">Auto-generate Labels</span>
-                  </label>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Extension Line Length: {measurementSettings.extensionLineLength}px
-                  </label>
-                  <input
-                    type="range"
-                    min="10"
-                    max="50"
-                    value={measurementSettings.extensionLineLength}
-                    onChange={(e) => setMeasurementSettings(prev => ({ 
-                      ...prev, 
-                      extensionLineLength: Number(e.target.value) 
+                  <label className="block text-sm font-medium mb-1">Text Position</label>
+                  <select
+                    value={measurementSettings.textPosition}
+                    onChange={(e) => setMeasurementSettings(prev => ({
+                      ...prev,
+                      textPosition: e.target.value as any
                     }))}
-                    className="w-full"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6 pt-4 border-t border-gray-200">
-                <h5 className="text-xs font-medium text-gray-700 mb-2">Quick Actions</h5>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => onMeasurementsChange([])}
-                    className="w-full text-xs px-3 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                    className="w-full p-2 border rounded"
                   >
-                    Clear All Measurements
-                  </button>
+                    <option value="above">Above</option>
+                    <option value="center">Center</option>
+                    <option value="below">Below</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Arrow Style</label>
+                  <select
+                    value={measurementSettings.arrowStyle}
+                    onChange={(e) => setMeasurementSettings(prev => ({
+                      ...prev,
+                      arrowStyle: e.target.value as any
+                    }))}
+                    className="w-full p-2 border rounded"
+                  >
+                    <option value="arrow">Arrow</option>
+                    <option value="dot">Dot</option>
+                    <option value="slash">Slash</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="showExtensionLines"
+                    checked={measurementSettings.showExtensionLines}
+                    onChange={(e) => setMeasurementSettings(prev => ({
+                      ...prev,
+                      showExtensionLines: e.target.checked
+                    }))}
+                  />
+                  <label htmlFor="showExtensionLines" className="text-sm">
+                    Show Extension Lines
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="autoLabel"
+                    checked={measurementSettings.autoLabel}
+                    onChange={(e) => setMeasurementSettings(prev => ({
+                      ...prev,
+                      autoLabel: e.target.checked
+                    }))}
+                  />
+                  <label htmlFor="autoLabel" className="text-sm">
+                    Auto Label
+                  </label>
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="flex justify-between items-center p-4 border-t border-gray-200">
+        <div className="flex items-center justify-between p-4 border-t bg-gray-50">
           <div className="text-sm text-gray-600">
-            {measurements.length} measurement{measurements.length !== 1 ? 's' : ''} • 
-            Scale: {pixelsPerUnit}px = 1{defaultUnit}
+            {measurements.length} measurement{measurements.length !== 1 ? 's' : ''} total
           </div>
           <button
             onClick={onClose}

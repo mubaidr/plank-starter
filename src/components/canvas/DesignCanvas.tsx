@@ -6,7 +6,7 @@ import { useFloorPlanContext } from '@/context/FloorPlanContext';
 import { useToolContext } from '@/context/ToolContext';
 import { useSnapSystem } from '../../hooks/useSnapSystem';
 import SnapIndicators from './SnapIndicators';
-import { FloorPlanObject, Point, Wall, Door, Window, Room } from '@/types';
+import { FloorPlanObject } from '@/types';
 
 interface DesignCanvasProps {
   // Most props are now handled by context, but we can keep some for flexibility
@@ -25,17 +25,17 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
   const { activeTool, isDrawing, drawingData, startDrawing, continueDrawing, finishDrawing, cancelDrawing } = useToolContext();
   
   // Extract state values for easier access
-  const objects = Object.values(state.objects);
-  const selectedObjectIds = state.canvas.selection.selectedIds;
-  const zoom = state.canvas.viewport.zoom;
-  const pan = state.canvas.viewport.pan;
-  const gridVisible = state.canvas.grid.visible;
-  const gridSize = state.canvas.grid.size;
-  const snapToGrid = state.canvas.snap.snapToGrid;
-  const snapToObjects = state.canvas.snap.snapToObjects;
-  const snapTolerance = state.canvas.snap.tolerance;
+  const _objects = Object.values(state.objects);
+  const _selectedObjectIds = state.canvas.selection.selectedIds;
+  const _zoom = state.canvas.viewport.zoom;
+  const _pan = state.canvas.viewport.pan;
+  const _gridVisible = state.canvas.grid.visible;
+  const _gridSize = state.canvas.grid.size;
+  const _snapToGrid = state.canvas.snap.snapToGrid;
+  const _snapToObjects = state.canvas.snap.snapToObjects;
+  const _snapTolerance = state.canvas.snap.tolerance;
   const layers = Object.values(state.layers);
-  const visibleLayers = layers.filter(layer => layer.visible);
+  const visibleLayers = layers.filter((layer: any) => layer.visible);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 });
@@ -63,10 +63,10 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
 
   // Handle window resize
   useEffect(() => {
-    const updateSize = () => {
-      const container = stageRef.current?.container();
+    const _updateSize = () => {
+      const _container = stageRef.current?.container();
       if (container) {
-        const containerRect = container.getBoundingClientRect();
+        const _containerRect = container.getBoundingClientRect();
         setStageSize({
           width: containerRect.width,
           height: containerRect.height
@@ -81,12 +81,12 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
 
   // Update transformer when selection changes
   useEffect(() => {
-    const transformer = transformerRef.current;
-    const stage = stageRef.current;
+    const _transformer = transformerRef.current;
+    const _stage = stageRef.current;
     
     if (!transformer || !stage) return;
 
-    const selectedNodes = selectedObjectIds.map(id => 
+    const _selectedNodes = selectedObjectIds.map(id => 
       stage.findOne(`#${id}`)
     ).filter((node): node is Konva.Node => Boolean(node));
 
@@ -94,7 +94,7 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
     transformer.getLayer()?.batchDraw();
   }, [selectedObjectIds]);
 
-  const generateId = () => `obj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const _generateId = () => `obj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   // Initialize snap system
   const { snapPoint, shouldAutoConnect } = useSnapSystem({
@@ -107,37 +107,37 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
   });
 
   // Enhanced snap function with visual feedback
-  const snapToGridPoint = useCallback((point: { x: number; y: number }) => {
-    const snapResult = snapPoint(point.x, point.y);
+  const _snapToGridPoint = useCallback((point: { x: number; y: number }) => {
+    const _snapResult = snapPoint(point.x, point.y);
     setCurrentSnapPoints(snapResult.snapPoints);
     setActiveSnapPoint(snapResult.isSnapped ? snapResult.snapPoints[0] : null);
     return snapResult.point;
   }, [snapPoint]);
 
   // Handle wheel zoom
-  const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
+  const _handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
     
-    const stage = e.target.getStage();
+    const _stage = e.target.getStage();
     if (!stage) return;
 
-    const oldScale = stage.scaleX();
-    const pointer = stage.getPointerPosition();
+    const _oldScale = stage.scaleX();
+    const _pointer = stage.getPointerPosition();
     if (!pointer) return;
 
-    const mousePointTo = {
+    const _mousePointTo = {
       x: (pointer.x - stage.x()) / oldScale,
       y: (pointer.y - stage.y()) / oldScale,
     };
 
-    const direction = e.evt.deltaY > 0 ? -1 : 1;
-    const scaleBy = 1.1;
-    const newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
+    const _direction = e.evt.deltaY > 0 ? -1 : 1;
+    const _scaleBy = 1.1;
+    const _newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
     
     // Limit zoom range
-    const clampedScale = Math.max(0.1, Math.min(5, newScale));
+    const _clampedScale = Math.max(0.1, Math.min(5, newScale));
     
-    const newPos = {
+    const _newPos = {
       x: pointer.x - mousePointTo.x * clampedScale,
       y: pointer.y - mousePointTo.y * clampedScale,
     };
@@ -150,11 +150,11 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
     onPanChange(newPos);
   }, [onZoomChange, onPanChange]);
 
-  const handleMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
-    const stage = e.target.getStage();
+  const _handleMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
+    const _stage = e.target.getStage();
     if (!stage) return;
 
-    const pos = stage.getPointerPosition();
+    const _pos = stage.getPointerPosition();
     if (!pos) return;
 
     // Handle pan tool
@@ -187,10 +187,10 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
       } else {
         // Complete measurement
         if (measureStart) {
-          const distance = Math.sqrt(
+          const _distance = Math.sqrt(
             Math.pow(pos.x - measureStart.x, 2) + Math.pow(pos.y - measureStart.y, 2)
           );
-          const newMeasurement = {
+          const _newMeasurement = {
             id: generateId(),
             startPoint: measureStart,
             endPoint: pos,
@@ -206,11 +206,11 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
 
     // Handle tool-specific actions
     if (activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'line' || activeTool === 'wall' || activeTool === 'door' || activeTool === 'window') {
-      const id = generateId();
-      const snappedPos = snapToGridPoint(pos);
+      const _id = generateId();
+      const _snappedPos = snapToGridPoint(pos);
       
-      const activeLayer = layers.find(l => l.id === activeLayerId);
-      const baseObject = {
+      const _activeLayer = layers.find(l => l.id === activeLayerId);
+      const _baseObject = {
         id,
         x: snappedPos.x,
         y: snappedPos.y,
@@ -287,10 +287,10 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
       }
     } else if (activeTool === 'select') {
       // Handle selection
-      const clickedId = e.target.id();
+      const _clickedId = e.target.id();
       if (clickedId) {
-        const isSelected = selectedObjectIds.includes(clickedId);
-        const isMultiSelect = e.evt.ctrlKey || e.evt.metaKey;
+        const _isSelected = selectedObjectIds.includes(clickedId);
+        const _isMultiSelect = e.evt.ctrlKey || e.evt.metaKey;
 
         if (isMultiSelect) {
           if (isSelected) {
@@ -305,19 +305,19 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
     }
   }, [activeTool, selectedObjectIds, onSelectionChange]);
 
-  const handleMouseMove = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
-    const stage = e.target.getStage();
+  const _handleMouseMove = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
+    const _stage = e.target.getStage();
     if (!stage) return;
 
-    const pos = stage.getPointerPosition();
+    const _pos = stage.getPointerPosition();
     if (!pos) return;
 
     // Handle panning
     if (isPanning && activeTool === 'pan') {
-      const dx = pos.x - lastPanPoint.x;
-      const dy = pos.y - lastPanPoint.y;
+      const _dx = pos.x - lastPanPoint.x;
+      const _dy = pos.y - lastPanPoint.y;
       
-      const newPos = {
+      const _newPos = {
         x: stage.x() + dx,
         y: stage.y() + dy
       };
@@ -330,7 +330,7 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
 
     // Handle area selection
     if (isAreaSelecting && activeTool === 'select') {
-      const rect = {
+      const _rect = {
         x: Math.min(pos.x, selectionRect.x),
         y: Math.min(pos.y, selectionRect.y),
         width: Math.abs(pos.x - selectionRect.x),
@@ -343,8 +343,8 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
     // Handle drawing
     if (!isDrawing || !newObject) return;
 
-    const snappedPos = snapToGridPoint(pos);
-    const updatedObject = { ...newObject };
+    const _snappedPos = snapToGridPoint(pos);
+    const _updatedObject = { ...newObject };
 
     if (newObject.type === 'rectangle') {
       updatedObject.width = Math.abs(snappedPos.x - newObject.x);
@@ -352,7 +352,7 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
       if (snappedPos.x < newObject.x) updatedObject.x = snappedPos.x;
       if (snappedPos.y < newObject.y) updatedObject.y = snappedPos.y;
     } else if (newObject.type === 'circle') {
-      const radius = Math.sqrt(
+      const _radius = Math.sqrt(
         Math.pow(snappedPos.x - newObject.x, 2) + Math.pow(snappedPos.y - newObject.y, 2)
       );
       updatedObject.radius = radius;
@@ -368,7 +368,7 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
     setNewObject(updatedObject);
   }, [isDrawing, newObject, isPanning, activeTool, lastPanPoint, onPanChange]);
 
-  const handleMouseUp = useCallback(() => {
+  const _handleMouseUp = useCallback(() => {
     if (isPanning) {
       setIsPanning(false);
       return;
@@ -376,11 +376,11 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
 
     // Handle area selection
     if (isAreaSelecting) {
-      const stage = stageRef.current;
+      const _stage = stageRef.current;
       if (stage && selectionRect.width > 5 && selectionRect.height > 5) {
         const selectedIds: string[] = [];
         objects.forEach(obj => {
-          const objBounds = {
+          const _objBounds = {
             x: obj.x,
             y: obj.y,
             width: obj.width || (obj.radius ? obj.radius * 2 : 0),
@@ -410,7 +410,7 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
       } else if (newObject.type === 'circle') {
         hasSize = (newObject.radius || 0) > 5;
       } else if (newObject.type === 'line') {
-        const points = newObject.points || [];
+        const _points = newObject.points || [];
         hasSize = Math.abs(points[2]) > 5 || Math.abs(points[3]) > 5;
       } else if (newObject.type === 'door' || newObject.type === 'window') {
         hasSize = (newObject.width || 0) > 10 && (newObject.height || 0) > 5;
@@ -428,15 +428,15 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
     setNewObject(null);
   }, [isDrawing, newObject, isPanning, isAreaSelecting, selectionRect, objects, onAddObject, onSelectionChange]);
 
-  const handleObjectChange = useCallback((id: string, newAttrs: Partial<CanvasObject>) => {
-    const updatedObjects = objects.map(obj => 
+  const _handleObjectChange = useCallback((id: string, newAttrs: Partial<CanvasObject>) => {
+    const _updatedObjects = objects.map(obj => 
       obj.id === id ? { ...obj, ...newAttrs } : obj
     );
     onObjectsChange(updatedObjects);
   }, [objects, onObjectsChange]);
 
-  const renderObject = (obj: CanvasObject) => {
-    const commonProps = {
+  const _renderObject = (obj: CanvasObject) => {
+    const _commonProps = {
       key: obj.id,
       id: obj.id,
       x: obj.x,
@@ -453,9 +453,9 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
         });
       },
       onTransformEnd: (e: Konva.KonvaEventObject<Event>) => {
-        const node = e.target;
-        const scaleX = node.scaleX();
-        const scaleY = node.scaleY();
+        const _node = e.target;
+        const _scaleX = node.scaleX();
+        const _scaleY = node.scaleY();
 
         // Reset scale and apply to dimensions
         node.scaleX(1);
@@ -473,7 +473,7 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
         } else if (obj.type === 'circle') {
           updates.radius = Math.max(5, node.radius() * Math.max(scaleX, scaleY));
         } else if (obj.type === 'line' || obj.type === 'wall') {
-          const points = obj.points || [0, 0, 0, 0];
+          const _points = obj.points || [0, 0, 0, 0];
           updates.points = [
             points[0] * scaleX,
             points[1] * scaleY,
@@ -601,7 +601,7 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
         />
       );
     } else if (obj.type === 'room') {
-      const points = obj.points || [];
+      const _points = obj.points || [];
       if (points.length >= 6) { // At least 3 points (x,y pairs)
         return (
           <React.Fragment key={obj.id}>
@@ -635,7 +635,7 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
 
   // Apply zoom and pan to stage
   useEffect(() => {
-    const stage = stageRef.current;
+    const _stage = stageRef.current;
     if (!stage) return;
     
     stage.scale({ x: zoom, y: zoom });
@@ -698,7 +698,7 @@ const DesignCanvas: React.FC<DesignCanvasProps> = ({
 
           {/* Render existing objects */}
           {objects.filter(obj => {
-            const layer = layers.find(l => l.id === obj.layerId);
+            const _layer = layers.find(l => l.id === obj.layerId);
             return !layer || layer.visible;
           }).map(renderObject)}
 
