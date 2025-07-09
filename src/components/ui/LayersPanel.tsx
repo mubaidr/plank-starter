@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { Eye, EyeOff, Lock, Unlock, Plus, Trash2, Edit3 } from 'lucide-react';
+import { Eye, EyeOff, Lock, Unlock, Plus, Trash2, Edit3, Printer, Palette } from 'lucide-react';
 
 interface Layer {
   id: string;
@@ -8,6 +8,8 @@ interface Layer {
   visible: boolean;
   locked: boolean;
   color: string;
+  opacity: number;
+  printable: boolean;
 }
 
 interface LayersPanelProps {
@@ -30,6 +32,13 @@ const LayersPanel: React.FC<LayersPanelProps> = ({
 }) => {
   const [editingLayerId, setEditingLayerId] = React.useState<string | null>(null);
   const [editingName, setEditingName] = React.useState('');
+  const [showColorPicker, setShowColorPicker] = React.useState<string | null>(null);
+
+  // Predefined color palette
+  const colorPalette = [
+    '#1E40AF', '#059669', '#DC2626', '#7C3AED', '#EA580C',
+    '#0891B2', '#BE185D', '#65A30D', '#CA8A04', '#6B7280'
+  ];
 
   const handleStartEdit = (layer: Layer) => {
     setEditingLayerId(layer.id);
@@ -80,11 +89,69 @@ const LayersPanel: React.FC<LayersPanelProps> = ({
             onClick={() => onLayerSelect(layer.id)}
           >
             <div className="flex items-center space-x-2">
-              {/* Color Indicator */}
-              <div
-                className="w-4 h-4 rounded-full border-2 border-gray-300"
-                style={{ backgroundColor: layer.color }}
-              />
+              {/* Color Indicator with Picker */}
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowColorPicker(showColorPicker === layer.id ? null : layer.id);
+                  }}
+                  className="w-4 h-4 rounded-full border-2 border-gray-300 hover:border-gray-400 transition-colors cursor-pointer"
+                  style={{ backgroundColor: layer.color, opacity: layer.opacity }}
+                  title="Change layer color"
+                />
+                
+                {/* Color Picker Dropdown */}
+                {showColorPicker === layer.id && (
+                  <div className="absolute top-6 left-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-2">
+                    <div className="grid grid-cols-5 gap-1 mb-2">
+                      {colorPalette.map((color) => (
+                        <button
+                          key={color}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onLayerUpdate(layer.id, { color });
+                            setShowColorPicker(null);
+                          }}
+                          className="w-6 h-6 rounded border border-gray-300 hover:border-gray-400 transition-colors"
+                          style={{ backgroundColor: color }}
+                          title={color}
+                        />
+                      ))}
+                    </div>
+                    
+                    {/* Opacity Slider */}
+                    <div className="mb-2">
+                      <label className="text-xs text-gray-600 block mb-1">Opacity</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={layer.opacity}
+                        onChange={(e) => {
+                          onLayerUpdate(layer.id, { opacity: parseFloat(e.target.value) });
+                        }}
+                        className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="text-xs text-gray-500 text-center">{Math.round(layer.opacity * 100)}%</div>
+                    </div>
+                    
+                    {/* Custom Color Input */}
+                    <div>
+                      <label className="text-xs text-gray-600 block mb-1">Custom Color</label>
+                      <input
+                        type="color"
+                        value={layer.color}
+                        onChange={(e) => {
+                          onLayerUpdate(layer.id, { color: e.target.value });
+                        }}
+                        className="w-full h-6 border border-gray-300 rounded cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Layer Name */}
               <div className="flex-1">
@@ -105,6 +172,21 @@ const LayersPanel: React.FC<LayersPanelProps> = ({
 
               {/* Controls */}
               <div className="flex items-center space-x-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLayerUpdate(layer.id, { printable: !layer.printable });
+                  }}
+                  className={`p-1 rounded transition-colors ${
+                    layer.printable 
+                      ? 'text-green-600 hover:bg-green-100' 
+                      : 'text-gray-400 hover:bg-gray-200'
+                  }`}
+                  title={layer.printable ? 'Exclude from print' : 'Include in print'}
+                >
+                  <Printer size={14} />
+                </button>
+                
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

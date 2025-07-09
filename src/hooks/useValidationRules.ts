@@ -19,12 +19,12 @@ export interface ValidationRule {
   name: string;
   category: ValidationIssue['category'];
   enabled: boolean;
-  validate: (objects: any[], rooms: any[]) => ValidationIssue[];
+  validate: (objects: Array<{ id: string; position: Point; properties?: Record<string, unknown> }>, rooms: Array<{ id: string; position: Point; properties?: Record<string, unknown> }>) => ValidationIssue[];
 }
 
 interface UseValidationRulesProps {
-  objects: any[];
-  rooms: any[];
+  objects: Array<{ id: string; position: Point; properties?: Record<string, unknown> }>;
+  rooms: Array<{ id: string; position: Point; properties?: Record<string, unknown> }>;
   enabled?: boolean;
 }
 
@@ -39,7 +39,7 @@ export const useValidationRules = ({
     return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
   }, []);
 
-  const getObjectBounds = useCallback((obj: any) => {
+  const getObjectBounds = useCallback((obj: { id: string; position: Point; properties?: Record<string, unknown> }) => {
     const x = obj.position.x;
     const y = obj.position.y;
     const width = obj.properties?.width || 50;
@@ -106,8 +106,10 @@ export const useValidationRules = ({
             const obj2 = objects[j];
             
             // Skip if different types that can overlap (e.g., text over walls)
-            if ((obj1.type === 'text' || obj2.type === 'text') ||
-                (obj1.type === 'room' || obj2.type === 'room')) {
+            const obj1Type = (obj1 as any).type;
+            const obj2Type = (obj2 as any).type;
+            if ((obj1Type === 'text' || obj2Type === 'text') ||
+                (obj1Type === 'room' || obj2Type === 'room')) {
               continue;
             }
             
@@ -120,7 +122,7 @@ export const useValidationRules = ({
                 type: 'warning',
                 category: 'geometry',
                 title: 'Overlapping Objects',
-                description: `${obj1.type} and ${obj2.type} are overlapping`,
+                description: `${obj1Type} and ${obj2Type} are overlapping`,
                 objectIds: [obj1.id, obj2.id],
                 position: {
                   x: (bounds1.centerX + bounds2.centerX) / 2,

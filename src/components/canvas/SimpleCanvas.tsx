@@ -26,7 +26,7 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({
   onTextToolClick,
   onRoomToolClick
 }) => {
-  const { state, addObject, setZoom, setPan, selectObjects } = useFloorPlanContext();
+  const { state, setZoom, setPan, selectObjects } = useFloorPlanContext();
   const { activeTool } = useToolContext();
   
   // Guides state
@@ -58,8 +58,8 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({
   const { touchHandlers, isGesturing } = useTouchGestures({
     onZoom: setZoom,
     onPan: setPan,
-    currentZoom: zoom,
-    currentPan: pan,
+    currentZoom: _zoom,
+    currentPan: _pan,
     minZoom: 0.1,
     maxZoom: 10
   });
@@ -67,7 +67,7 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({
   // Lasso selection support
   const { lassoState, lassoHandlers, getLassoPath, isLassoActive } = useLassoSelection({
     onSelectionComplete: selectObjects,
-    objects: objects.map(obj => ({
+    objects: _objects.map(obj => ({
       id: obj.id,
       position: obj.position,
       properties: obj.properties

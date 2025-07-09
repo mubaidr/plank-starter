@@ -1,31 +1,37 @@
 "use client";
 import React, { useState } from 'react';
-import { Home, X } from 'lucide-react';
+import { Home, X, Link, Unlink, Zap } from 'lucide-react';
 
 interface WallProperties {
   thickness: number; // in pixels (will be converted to real units)
   material: string;
   height: number; // wall height in pixels
   insulation: boolean;
-  structural: boolean;
+  structural: boolean; // load-bearing wall
+  autoConnect: boolean; // auto-connect to nearby walls
+  connectTolerance: number; // connection tolerance in pixels
 }
 
 interface WallToolProps {
   onWallPropertiesChange: (properties: WallProperties) => void;
   onClose: () => void;
   currentProperties: WallProperties;
+  onAutoConnectToggle?: (enabled: boolean) => void;
 }
 
 const WallTool: React.FC<WallToolProps> = ({
   onWallPropertiesChange,
   onClose,
-  currentProperties
+  currentProperties,
+  onAutoConnectToggle
 }) => {
   const [thickness, setThickness] = useState(currentProperties.thickness);
   const [material, setMaterial] = useState(currentProperties.material);
   const [height, setHeight] = useState(currentProperties.height);
   const [insulation, setInsulation] = useState(currentProperties.insulation);
   const [structural, setStructural] = useState(currentProperties.structural);
+  const [autoConnect, setAutoConnect] = useState(currentProperties.autoConnect || true);
+  const [connectTolerance, setConnectTolerance] = useState(currentProperties.connectTolerance || 10);
 
   // Standard wall thicknesses in inches (converted to pixels at 20px = 1ft scale)
   const wallThicknesses = [
@@ -53,10 +59,17 @@ const WallTool: React.FC<WallToolProps> = ({
       material,
       height,
       insulation,
-      structural
+      structural,
+      autoConnect,
+      connectTolerance
     };
     onWallPropertiesChange(newProperties);
     onClose();
+  };
+
+  const handleAutoConnectToggle = (enabled: boolean) => {
+    setAutoConnect(enabled);
+    onAutoConnectToggle?.(enabled);
   };
 
   const selectedMaterial = wallMaterials.find(m => m.id === material);
@@ -190,11 +203,14 @@ const WallTool: React.FC<WallToolProps> = ({
             </div>
 
             <div className="flex items-center justify-between">
-              <label className="text-sm text-gray-700">Load Bearing</label>
+              <div className="flex items-center space-x-2">
+                <Zap className={`w-4 h-4 ${structural ? 'text-orange-500' : 'text-gray-400'}`} />
+                <label className="text-sm text-gray-700">Load Bearing</label>
+              </div>
               <button
                 onClick={() => setStructural(!structural)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  structural ? 'bg-blue-600' : 'bg-gray-200'
+                  structural ? 'bg-orange-600' : 'bg-gray-200'
                 }`}
               >
                 <span
@@ -204,6 +220,49 @@ const WallTool: React.FC<WallToolProps> = ({
                 />
               </button>
             </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                {autoConnect ? (
+                  <Link className="w-4 h-4 text-green-500" />
+                ) : (
+                  <Unlink className="w-4 h-4 text-gray-400" />
+                )}
+                <label className="text-sm text-gray-700">Auto Connect</label>
+              </div>
+              <button
+                onClick={() => handleAutoConnectToggle(!autoConnect)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  autoConnect ? 'bg-green-600' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    autoConnect ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {autoConnect && (
+              <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Connection Tolerance: {connectTolerance}px
+                </label>
+                <input
+                  type="range"
+                  min="5"
+                  max="50"
+                  value={connectTolerance}
+                  onChange={(e) => setConnectTolerance(parseInt(e.target.value))}
+                  className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>Precise</span>
+                  <span>Loose</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Preview */}

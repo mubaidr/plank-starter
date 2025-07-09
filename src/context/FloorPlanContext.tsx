@@ -10,7 +10,7 @@ import {
 } from '@/types/floorPlanTypes';
 
 // Context Type Definition
-interface Floor极ContextType {
+interface FloorPlanContextType {
   state: FloorPlanState;
   dispatch: React.Dispatch<FloorPlanAction>;
 
@@ -35,11 +35,13 @@ interface Floor极ContextType {
   updateDimension: (id: string, updates: Partial<Dimension>) => void;
   deleteDimension: (id: string) => void;
 
-  // History Management
+  // History Management - Enhanced for unlimited undo/redo
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  clearHistory: () => void;
+  getHistorySize: () => number;
 }
 
 // Initial State
@@ -118,408 +120,228 @@ const initialFloorPlanState: FloorPlanState = {
     }
   },
   project: {
-    id: 'new-project',
     name: 'Untitled Project',
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    description: '',
+    author: '',
+    created: new Date().toISOString(),
+    modified: new Date().toISOString(),
     version: '1.0.0',
-    tags: [],
-    unitSystem: 'imperial',
-    displayFormat: 'decimal',
-    precision: 2
+    units: 'feet',
+    scale: 1
   },
   dimensions: {},
+  guides: [],
+  // Enhanced history system for unlimited undo/redo
   history: {
     past: [],
-    present: {
-      objects: {},
-      layers: {
-        'layer-1': {
-          id: 'layer-1',
-          name: 'Walls',
-          visible: true,
-          locked: false,
-          color: '#1E40AF',
-          opacity: 1,
-          printable: true
-        },
-        'layer-2': {
-          id: 'layer-2',
-          name: 'Doors & Windows',
-          visible: true,
-          locked: false,
-          color: '#059669',
-          opacity: 1,
-          printable: true
-        },
-        'layer-3': {
-          id: 'layer-3',
-          name: 'Furniture',
-          visible: true,
-          locked: false,
-          color: '#DC2626',
-          opacity: 1,
-          printable: true
-        }
-      },
-      canvas: {
-        viewport: {
-          zoom: 1,
-          pan: { x: 0, y: 0 },
-          bounds: { x: 0, y: 0, width: 800, height: 600 },
-          center: { x: 400, y: 300 }
-        },
-        grid: {
-          visible: true,
-          size: 20,
-          unit: 'feet',
-          subdivisions: 4,
-          color: '#E5E7极',
-          opacity: 0.5
-        },
-        snap: {
-          enabled: true,
-          snapToGrid: true,
-          snapToObjects: true,
-          snapToGuides: false,
-          tolerance: 10
-        },
-        selection: {
-          selectedIds: [],
-          multiSelect: false,
-          selectionMode: 'single'
-        },
-        view: {
-          viewType: '2d',
-          showGrid: true,
-          showSnapIndicators: true,
-          showDimensions: true,
-          showMaterials: false
-        },
-        interaction: {
-          isDrawing: false,
-          isPanning: false,
-          isSelecting: false,
-          currentTool: 'select',
-          toolSettings: {},
-          currentMousePosition: { x: 0, y: 0 }
-        }
-      },
-      project: {
-        id: 'new-project',
-        name: 'Untitled Project',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        version: '1.0.0',
-        tags: [],
-        unitSystem: 'imperial',
-        displayFormat: 'decimal',
-        precision: 2
-      },
-      dimensions: {}
-    },
+    present: null,
     future: [],
-    maxHistorySize: 50
+    maxHistorySize: -1, // -1 means unlimited
+    canUndo: false,
+    canRedo: false
   }
 };
 
-// Reducer Function
+// Helper function to create a snapshot of the current state (excluding history)
+const createStateSnapshot = (state: FloorPlanState): Omit<FloorPlanState, 'history'> => {
+  const { history, ...snapshot } = state;
+  return snapshot;
+};
+
+// Enhanced reducer with unlimited history support
 const floorPlanReducer = (state: FloorPlanState, action: FloorPlanAction): FloorPlanState => {
-  const addToHistory = (newState: FloorPlanState): FloorPlanState => {
-    // Extract current state without history
-    const { history: _, ...currentStateWithoutHistory } = state;
-    const newPast = [...state.history.past, currentStateWithoutHistory].slice(-state.history.maxHistorySize);
-
-    // Extract new state without history for present
-    const { history: __, ...newStateWithoutHistory } = newState;
-
+  // Helper function to update state with history tracking
+  const updateWithHistory = (newState: Partial<FloorPlanState>): FloorPlanState => {
+    const currentSnapshot = createStateSnapshot(state);
+    const updatedState = { ...state, ...newState };
+    
     return {
-      ...newState,
+      ...updatedState,
       history: {
         ...state.history,
-        past: newPast,
-        present: newStateWithoutHistory,
-        future: []
+        past: [...state.history.past, currentSnapshot],
+        present: createStateSnapshot(updatedState),
+        future: [], // Clear future when new action is performed
+        canUndo: true,
+        canRedo: false
       }
     };
   };
 
   switch (action.type) {
     case 'ADD_OBJECT': {
-      const newState = {
-        ...state,
-        objects: {
-          ...state.objects,
-          [action.payload.id]: action.payload
-        }
+      const newObjects = {
+        ...state.objects,
+        [action.payload.id]: action.payload
       };
-      return addToHistory(newState);
+      return updateWithHistory({ objects: newObjects });
     }
 
     case 'UPDATE_OBJECT': {
       const { id, updates } = action.payload;
       if (!state.objects[id]) return state;
-
-      const newState = {
-        ...state,
-        objects: {
-          ...state.objects,
-          [id]: {
-            ...state.objects[id],
-            ...updates,
-            metadata: {
-              ...state.objects[id].metadata,
-              updatedAt: new Date(),
-              version: state.objects[id].metadata.version + 1
-            }
-          }
-        }
+      
+      const newObjects = {
+        ...state.objects,
+        [id]: { ...state.objects[id], ...updates }
       };
-      return addToHistory(newState);
+      return updateWithHistory({ objects: newObjects });
     }
 
     case 'DELETE_OBJECT': {
-      const { [action.payload]: deleted, ...remainingObjects } = state.objects;
-      const newState = {
-        ...state,
-        objects: remainingObjects,
-        canvas: {
-          ...state.canvas,
-          selection: {
-            ...state.canvas.selection,
-            selectedIds: state.canvas.selection.selectedIds.filter(id => id !== action.payload)
-          }
-        }
-      };
-      return addToHistory(newState);
+      const { [action.payload]: deleted, ...newObjects } = state.objects;
+      return updateWithHistory({ objects: newObjects });
     }
 
     case 'SELECT_OBJECTS': {
-      return {
-        ...state,
-        canvas: {
-          ...state.canvas,
-          selection: {
-            ...state.canvas.selection,
-            selectedIds: action.payload
-          }
+      const newCanvas = {
+        ...state.canvas,
+        selection: {
+          ...state.canvas.selection,
+          selectedIds: action.payload
         }
       };
+      // Selection changes don't need history tracking
+      return { ...state, canvas: newCanvas };
     }
 
     case 'SET_ZOOM': {
-      return {
-        ...state,
-        canvas: {
-          ...state.canvas,
-          viewport: {
-            ...state.canvas.viewport,
-            zoom: Math.max(0.1, Math.min(10, action.payload))
-          }
+      const newCanvas = {
+        ...state.canvas,
+        viewport: {
+          ...state.canvas.viewport,
+          zoom: action.payload
         }
       };
+      return { ...state, canvas: newCanvas };
     }
 
     case 'SET_PAN': {
-      return {
-        ...state,
-        canvas: {
-          ...state.canvas,
-          viewport: {
-            ...state.canvas.viewport,
-            pan: action.payload
-          }
+      const newCanvas = {
+        ...state.canvas,
+        viewport: {
+          ...state.canvas.viewport,
+          pan: action.payload
         }
       };
-    }
-
-    case 'SET_VIEW_TYPE': {
-      return {
-        ...state,
-        canvas: {
-          ...state.canvas,
-          view: {
-            ...state.canvas.view,
-            viewType: action.payload
-          }
-        }
-      };
+      return { ...state, canvas: newCanvas };
     }
 
     case 'ADD_LAYER': {
-      const id = `layer-${Date.now()}`;
-      const newState = {
-        ...state,
-        layers: {
-          ...state.layers,
-          [id]: { ...action.payload, id }
-        }
+      const layerId = `layer-${Date.now()}`;
+      const newLayer = { ...action.payload, id: layerId };
+      const newLayers = {
+        ...state.layers,
+        [layerId]: newLayer
       };
-      return addToHistory(newState);
+      return updateWithHistory({ layers: newLayers });
     }
 
     case 'UPDATE_LAYER': {
       const { id, updates } = action.payload;
       if (!state.layers[id]) return state;
-
-      const newState = {
-        ...state,
-        layers: {
-          ...state.layers,
-          [id]: {
-            ...state.layers[id],
-            ...updates
-          }
-        }
+      
+      const newLayers = {
+        ...state.layers,
+        [id]: { ...state.layers[id], ...updates }
       };
-      return addToHistory(newState);
+      return updateWithHistory({ layers: newLayers });
     }
 
     case 'DELETE_LAYER': {
-      const { [action.payload]: deleted, ...remainingLayers } = state.layers;
-      const newState = {
-        ...state,
-        layers: remainingLayers
-      };
-      return addToHistory(newState);
-    }
-
-    case 'ADD_GUIDE': {
-      const newState = {
-        ...state,
-        guides: [...state.guides, action.payload]
-      };
-      return addToHistory(newState);
-    }
-
-    case 'REMOVE_GUIDE': {
-      const newState = {
-        ...state,
-        guides: state.guides.filter(guide => guide.id !== action.payload)
-      };
-      return addToHistory(newState);
-    }
-
-    case 'UPDATE_GUIDE': {
-      const { id, position } = action.payload;
-      const newState = {
-        ...state,
-        guides: state.guides.map(guide =>
-          guide.id === id ? { ...guide, position } : guide
-        )
-      };
-      return addToHistory(newState);
-    }
-
-    case 'ADD_GUIDE': {
-      const newState = {
-        ...state,
-        guides: [...state.guides, action.payload]
-      };
-      return addToHistory(newState);
-    }
-
-    case 'REMOVE_GUIDE': {
-      const newState = {
-        ...state,
-        guides: state.guides.filter(guide => guide.id !== action.payload)
-      };
-      return addToHistory(newState);
-    }
-
-    case 'UPDATE_GUIDE': {
-      const { id, position } = action.payload;
-      const newState = {
-        ...state,
-        guides: state.guides.map(guide =>
-          guide.id === id ? { ...guide, position } : guide
-        )
-      };
-      return addToHistory(newState);
+      const { [action.payload]: deleted, ...newLayers } = state.layers;
+      return updateWithHistory({ layers: newLayers });
     }
 
     case 'ADD_DIMENSION': {
-      const newState = {
-        ...state,
-        dimensions: {
-          ...state.dimensions,
-          [action.payload.id]: action.payload
-        }
+      const newDimensions = {
+        ...state.dimensions,
+        [action.payload.id]: action.payload
       };
-      return addToHistory(newState);
+      return updateWithHistory({ dimensions: newDimensions });
     }
 
     case 'UPDATE_DIMENSION': {
       const { id, updates } = action.payload;
       if (!state.dimensions[id]) return state;
-
-      const newState = {
-        ...state,
-        dimensions: {
-          ...state.dimensions,
-          [id]: {
-            ...state.dimensions[id],
-            ...updates
-          }
-        }
+      
+      const newDimensions = {
+        ...state.dimensions,
+        [id]: { ...state.dimensions[id], ...updates }
       };
-      return addToHistory(newState);
+      return updateWithHistory({ dimensions: newDimensions });
     }
 
     case 'DELETE_DIMENSION': {
-      const { [action.payload]: deleted, ...remainingDimensions } = state.dimensions;
-      const newState = {
-        ...state,
-        dimensions: remainingDimensions
-      };
-      return addToHistory(newState);
+      const { [action.payload]: deleted, ...newDimensions } = state.dimensions;
+      return updateWithHistory({ dimensions: newDimensions });
     }
 
     case 'UNDO': {
       if (state.history.past.length === 0) return state;
-
+      
       const previous = state.history.past[state.history.past.length - 1];
       const newPast = state.history.past.slice(0, -1);
-
+      const currentSnapshot = createStateSnapshot(state);
+      
       return {
-        ...state,
         ...previous,
         history: {
+          ...state.history,
           past: newPast,
           present: previous,
-          future: [state.history.present, ...state.history.future]
+          future: [currentSnapshot, ...state.history.future],
+          canUndo: newPast.length > 0,
+          canRedo: true
         }
       };
     }
 
     case 'REDO': {
       if (state.history.future.length === 0) return state;
-
+      
       const next = state.history.future[0];
       const newFuture = state.history.future.slice(1);
-
+      const currentSnapshot = createStateSnapshot(state);
+      
       return {
-        ...state,
         ...next,
         history: {
-          past: [...state.history.past, state.history.present],
+          ...state.history,
+          past: [...state.history.past, currentSnapshot],
           present: next,
-          future: newFuture
+          future: newFuture,
+          canUndo: true,
+          canRedo: newFuture.length > 0
+        }
+      };
+    }
+
+    case 'CLEAR_HISTORY': {
+      return {
+        ...state,
+        history: {
+          ...state.history,
+          past: [],
+          future: [],
+          canUndo: false,
+          canRedo: false
         }
       };
     }
 
     case 'LOAD_PROJECT': {
-      // Extract history from payload if exists
       const { history: payloadHistory, ...payloadWithoutHistory } = action.payload;
-
+      
       return {
         ...payloadWithoutHistory,
         history: {
           past: [],
           present: payloadWithoutHistory,
           future: [],
-          maxHistorySize: state.history.maxHistorySize
+          maxHistorySize: -1, // Unlimited
+          canUndo: false,
+          canRedo: false
         }
       };
     }
@@ -592,7 +414,7 @@ export const FloorPlanProvider: React.FC<{ children: ReactNode }> = ({ children 
     dispatch({ type: 'DELETE_DIMENSION', payload: id });
   }, []);
 
-  // History Management Functions
+  // Enhanced History Management Functions
   const undo = useCallback(() => {
     dispatch({ type: 'UNDO' });
   }, []);
@@ -600,6 +422,14 @@ export const FloorPlanProvider: React.FC<{ children: ReactNode }> = ({ children 
   const redo = useCallback(() => {
     dispatch({ type: 'REDO' });
   }, []);
+
+  const clearHistory = useCallback(() => {
+    dispatch({ type: 'CLEAR_HISTORY' });
+  }, []);
+
+  const getHistorySize = useCallback(() => {
+    return state.history.past.length + state.history.future.length;
+  }, [state.history]);
 
   const canUndo = state.history.past.length > 0;
   const canRedo = state.history.future.length > 0;
@@ -617,19 +447,15 @@ export const FloorPlanProvider: React.FC<{ children: ReactNode }> = ({ children 
     addLayer,
     updateLayer,
     deleteLayer,
-    addGuide,
-    removeGuide,
-    updateGuide,
-    addGuide,
-    removeGuide,
-    updateGuide,
     addDimension,
     updateDimension,
     deleteDimension,
     undo,
     redo,
     canUndo,
-    canRedo
+    canRedo,
+    clearHistory,
+    getHistorySize
   };
 
   return (

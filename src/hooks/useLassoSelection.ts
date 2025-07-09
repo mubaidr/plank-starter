@@ -57,7 +57,7 @@ export const useLassoSelection = ({
   }, []);
 
   // Check if an object's bounds intersect with the lasso
-  const isObjectInLasso = useCallback((obj: any, lassoPoints: Point[]): boolean => {
+  const isObjectInLasso = useCallback((obj: { id: string; position: Point; properties?: { width?: number; height?: number } }, lassoPoints: Point[]): boolean => {
     if (lassoPoints.length < 3) return false;
 
     const objX = obj.position.x;

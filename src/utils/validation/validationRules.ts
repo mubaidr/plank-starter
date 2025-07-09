@@ -48,7 +48,7 @@ const validateElectrical = (obj: ElectricalElement): ValidationResult[] => {
   if (properties.voltage !== 120 && properties.voltage !== 240) {
     results.push({
       status: 'error',
-      message: `Invalid voltage (${properties.voltage}V). Must be 120V or 极240V`
+      message: `Invalid voltage (${properties.voltage}V). Must be 120V or 240V`
     });
   }
 

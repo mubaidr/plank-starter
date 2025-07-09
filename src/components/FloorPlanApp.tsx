@@ -74,7 +74,7 @@ const FloorPlanApp: React.FC = () => {
         redo={redo}
         zoomLevel={state.canvas.viewport.zoom}
         gridVisible={state.canvas.grid.visible}
-        snapToGrid={state.canvas.grid.snap}
+        snapToGrid={state.canvas.snap.snapToGrid}
         onToggleGrid={handleToggleGrid}
         onToggleSnap={handleToggleSnap}
         onZoomIn={handleZoomIn}
@@ -108,7 +108,7 @@ const FloorPlanApp: React.FC = () => {
               onToggleSnap={handleToggleSnap}
               onToggleGuides={handleToggleGuides}
               gridVisible={state.canvas.grid.visible}
-              snapToGrid={state.canvas.grid.snap}
+              snapToGrid={state.canvas.snap.snapToGrid}
               guidesVisible={true}
               className="absolute top-4 left-4 w-64 max-w-xs z-30"
             />
