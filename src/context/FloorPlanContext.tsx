@@ -1,15 +1,16 @@
 import React, { createContext, useContext, useReducer, ReactNode, useCallback } from 'react';
-import { 
-  FloorPlanState, 
-  FloorPlanAction, 
-  FloorPlanObject, 
-  LayerState, 
-  Point, 
-  ViewType 
-} from '@/types';
+import {
+  FloorPlanState,
+  FloorPlanAction,
+  FloorPlanObject,
+  LayerState,
+  Point,
+  ViewType,
+  Dimension
+} from '@/types/floorPlanTypes';
 
 // Context Type Definition
-interface FloorPlanContextType {
+interface Floor极ContextType {
   state: FloorPlanState;
   dispatch: React.Dispatch<FloorPlanAction>;
 
@@ -29,6 +30,11 @@ interface FloorPlanContextType {
   updateLayer: (id: string, updates: Partial<LayerState>) => void;
   deleteLayer: (id: string) => void;
 
+  // Dimension Management
+  addDimension: (dimension: Dimension) => void;
+  updateDimension: (id: string, updates: Partial<Dimension>) => void;
+  deleteDimension: (id: string) => void;
+
   // History Management
   undo: () => void;
   redo: () => void;
@@ -40,32 +46,32 @@ interface FloorPlanContextType {
 const initialFloorPlanState: FloorPlanState = {
   objects: {},
   layers: {
-    'layer-1': { 
-      id: 'layer-1', 
-      name: 'Walls', 
-      visible: true, 
-      locked: false, 
-      color: '#1E40AF', 
-      opacity: 1, 
-      printable: true 
+    'layer-1': {
+      id: 'layer-1',
+      name: 'Walls',
+      visible: true,
+      locked: false,
+      color: '#1E40AF',
+      opacity: 1,
+      printable: true
     },
-    'layer-2': { 
-      id: 'layer-2', 
-      name: 'Doors & Windows', 
-      visible: true, 
-      locked: false, 
-      color: '#059669', 
-      opacity: 1, 
-      printable: true 
+    'layer-2': {
+      id: 'layer-2',
+      name: 'Doors & Windows',
+      visible: true,
+      locked: false,
+      color: '#059669',
+      opacity: 1,
+      printable: true
     },
-    'layer-3': { 
-      id: 'layer-3', 
-      name: 'Furniture', 
-      visible: true, 
-      locked: false, 
-      color: '#DC2626', 
-      opacity: 1, 
-      printable: true 
+    'layer-3': {
+      id: 'layer-3',
+      name: 'Furniture',
+      visible: true,
+      locked: false,
+      color: '#DC2626',
+      opacity: 1,
+      printable: true
     }
   },
   canvas: {
@@ -107,7 +113,8 @@ const initialFloorPlanState: FloorPlanState = {
       isPanning: false,
       isSelecting: false,
       currentTool: 'select',
-      toolSettings: {}
+      toolSettings: {},
+      currentMousePosition: { x: 0, y: 0 }
     }
   },
   project: {
@@ -116,29 +123,122 @@ const initialFloorPlanState: FloorPlanState = {
     createdAt: new Date(),
     updatedAt: new Date(),
     version: '1.0.0',
-    tags: []
+    tags: [],
+    unitSystem: 'imperial',
+    displayFormat: 'decimal',
+    precision: 2
   },
+  dimensions: {},
   history: {
     past: [],
-    present: {} as FloorPlanState,
+    present: {
+      objects: {},
+      layers: {
+        'layer-1': {
+          id: 'layer-1',
+          name: 'Walls',
+          visible: true,
+          locked: false,
+          color: '#1E40AF',
+          opacity: 1,
+          printable: true
+        },
+        'layer-2': {
+          id: 'layer-2',
+          name: 'Doors & Windows',
+          visible: true,
+          locked: false,
+          color: '#059669',
+          opacity: 1,
+          printable: true
+        },
+        'layer-3': {
+          id: 'layer-3',
+          name: 'Furniture',
+          visible: true,
+          locked: false,
+          color: '#DC2626',
+          opacity: 1,
+          printable: true
+        }
+      },
+      canvas: {
+        viewport: {
+          zoom: 1,
+          pan: { x: 0, y: 0 },
+          bounds: { x: 0, y: 0, width: 800, height: 600 },
+          center: { x: 400, y: 300 }
+        },
+        grid: {
+          visible: true,
+          size: 20,
+          unit: 'feet',
+          subdivisions: 4,
+          color: '#E5E7极',
+          opacity: 0.5
+        },
+        snap: {
+          enabled: true,
+          snapToGrid: true,
+          snapToObjects: true,
+          snapToGuides: false,
+          tolerance: 10
+        },
+        selection: {
+          selectedIds: [],
+          multiSelect: false,
+          selectionMode: 'single'
+        },
+        view: {
+          viewType: '2d',
+          showGrid: true,
+          showSnapIndicators: true,
+          showDimensions: true,
+          showMaterials: false
+        },
+        interaction: {
+          isDrawing: false,
+          isPanning: false,
+          isSelecting: false,
+          currentTool: 'select',
+          toolSettings: {},
+          currentMousePosition: { x: 0, y: 0 }
+        }
+      },
+      project: {
+        id: 'new-project',
+        name: 'Untitled Project',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        version: '1.0.0',
+        tags: [],
+        unitSystem: 'imperial',
+        displayFormat: 'decimal',
+        precision: 2
+      },
+      dimensions: {}
+    },
     future: [],
     maxHistorySize: 50
   }
 };
 
-// Set the present state correctly
-initialFloorPlanState.history.present = { ...initialFloorPlanState };
-
 // Reducer Function
 const floorPlanReducer = (state: FloorPlanState, action: FloorPlanAction): FloorPlanState => {
   const addToHistory = (newState: FloorPlanState): FloorPlanState => {
-    const newPast = [...state.history.past, state.history.present].slice(-state.history.maxHistorySize);
+    // Extract current state without history
+    const { history: _, ...currentStateWithoutHistory } = state;
+    const newPast = [...state.history.past, currentStateWithoutHistory].slice(-state.history.maxHistorySize);
+
+    // Extract new state without history for present
+    const { history: __, ...newStateWithoutHistory } = newState;
+
     return {
       ...newState,
       history: {
-        ...newState.history,
+        ...state.history,
         past: newPast,
-        present: newState,
+        present: newStateWithoutHistory,
         future: []
       }
     };
@@ -159,7 +259,7 @@ const floorPlanReducer = (state: FloorPlanState, action: FloorPlanAction): Floor
     case 'UPDATE_OBJECT': {
       const { id, updates } = action.payload;
       if (!state.objects[id]) return state;
-      
+
       const newState = {
         ...state,
         objects: {
@@ -261,8 +361,8 @@ const floorPlanReducer = (state: FloorPlanState, action: FloorPlanAction): Floor
     case 'UPDATE_LAYER': {
       const { id, updates } = action.payload;
       if (!state.layers[id]) return state;
-      
-      return {
+
+      const newState = {
         ...state,
         layers: {
           ...state.layers,
@@ -272,26 +372,119 @@ const floorPlanReducer = (state: FloorPlanState, action: FloorPlanAction): Floor
           }
         }
       };
+      return addToHistory(newState);
     }
 
     case 'DELETE_LAYER': {
       const { [action.payload]: deleted, ...remainingLayers } = state.layers;
-      return {
+      const newState = {
         ...state,
         layers: remainingLayers
       };
+      return addToHistory(newState);
+    }
+
+    case 'ADD_GUIDE': {
+      const newState = {
+        ...state,
+        guides: [...state.guides, action.payload]
+      };
+      return addToHistory(newState);
+    }
+
+    case 'REMOVE_GUIDE': {
+      const newState = {
+        ...state,
+        guides: state.guides.filter(guide => guide.id !== action.payload)
+      };
+      return addToHistory(newState);
+    }
+
+    case 'UPDATE_GUIDE': {
+      const { id, position } = action.payload;
+      const newState = {
+        ...state,
+        guides: state.guides.map(guide =>
+          guide.id === id ? { ...guide, position } : guide
+        )
+      };
+      return addToHistory(newState);
+    }
+
+    case 'ADD_GUIDE': {
+      const newState = {
+        ...state,
+        guides: [...state.guides, action.payload]
+      };
+      return addToHistory(newState);
+    }
+
+    case 'REMOVE_GUIDE': {
+      const newState = {
+        ...state,
+        guides: state.guides.filter(guide => guide.id !== action.payload)
+      };
+      return addToHistory(newState);
+    }
+
+    case 'UPDATE_GUIDE': {
+      const { id, position } = action.payload;
+      const newState = {
+        ...state,
+        guides: state.guides.map(guide =>
+          guide.id === id ? { ...guide, position } : guide
+        )
+      };
+      return addToHistory(newState);
+    }
+
+    case 'ADD_DIMENSION': {
+      const newState = {
+        ...state,
+        dimensions: {
+          ...state.dimensions,
+          [action.payload.id]: action.payload
+        }
+      };
+      return addToHistory(newState);
+    }
+
+    case 'UPDATE_DIMENSION': {
+      const { id, updates } = action.payload;
+      if (!state.dimensions[id]) return state;
+
+      const newState = {
+        ...state,
+        dimensions: {
+          ...state.dimensions,
+          [id]: {
+            ...state.dimensions[id],
+            ...updates
+          }
+        }
+      };
+      return addToHistory(newState);
+    }
+
+    case 'DELETE_DIMENSION': {
+      const { [action.payload]: deleted, ...remainingDimensions } = state.dimensions;
+      const newState = {
+        ...state,
+        dimensions: remainingDimensions
+      };
+      return addToHistory(newState);
     }
 
     case 'UNDO': {
       if (state.history.past.length === 0) return state;
-      
+
       const previous = state.history.past[state.history.past.length - 1];
       const newPast = state.history.past.slice(0, -1);
-      
+
       return {
+        ...state,
         ...previous,
         history: {
-          ...previous.history,
           past: newPast,
           present: previous,
           future: [state.history.present, ...state.history.future]
@@ -301,14 +494,14 @@ const floorPlanReducer = (state: FloorPlanState, action: FloorPlanAction): Floor
 
     case 'REDO': {
       if (state.history.future.length === 0) return state;
-      
+
       const next = state.history.future[0];
       const newFuture = state.history.future.slice(1);
-      
+
       return {
+        ...state,
         ...next,
         history: {
-          ...next.history,
           past: [...state.history.past, state.history.present],
           present: next,
           future: newFuture
@@ -317,13 +510,16 @@ const floorPlanReducer = (state: FloorPlanState, action: FloorPlanAction): Floor
     }
 
     case 'LOAD_PROJECT': {
+      // Extract history from payload if exists
+      const { history: payloadHistory, ...payloadWithoutHistory } = action.payload;
+
       return {
-        ...action.payload,
+        ...payloadWithoutHistory,
         history: {
           past: [],
-          present: action.payload,
+          present: payloadWithoutHistory,
           future: [],
-          maxHistorySize: 50
+          maxHistorySize: state.history.maxHistorySize
         }
       };
     }
@@ -383,6 +579,19 @@ export const FloorPlanProvider: React.FC<{ children: ReactNode }> = ({ children 
     dispatch({ type: 'DELETE_LAYER', payload: id });
   }, []);
 
+  // Dimension Management Functions
+  const addDimension = useCallback((dimension: Dimension) => {
+    dispatch({ type: 'ADD_DIMENSION', payload: dimension });
+  }, []);
+
+  const updateDimension = useCallback((id: string, updates: Partial<Dimension>) => {
+    dispatch({ type: 'UPDATE_DIMENSION', payload: { id, updates } });
+  }, []);
+
+  const deleteDimension = useCallback((id: string) => {
+    dispatch({ type: 'DELETE_DIMENSION', payload: id });
+  }, []);
+
   // History Management Functions
   const undo = useCallback(() => {
     dispatch({ type: 'UNDO' });
@@ -408,6 +617,15 @@ export const FloorPlanProvider: React.FC<{ children: ReactNode }> = ({ children 
     addLayer,
     updateLayer,
     deleteLayer,
+    addGuide,
+    removeGuide,
+    updateGuide,
+    addGuide,
+    removeGuide,
+    updateGuide,
+    addDimension,
+    updateDimension,
+    deleteDimension,
     undo,
     redo,
     canUndo,

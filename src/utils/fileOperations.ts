@@ -1,127 +1,65 @@
-import jsPDF from 'jspdf';
+import { LocalStorageAdapter } from './storage/localStorage';
+import { IndexedDBAdapter } from './storage/indexedDB';
+import { PDFExporter } from './export/pdfExporter';
+import { ImageExporter } from './export/imageExporter';
+import { SVGExporter } from './export/svgExporter';
+import { ProjectData, ProjectDataSchema } from '../types';
 
-// Project data interface
-export interface ProjectData {
-  version: string;
-  metadata: {
-    name: string;
-    description: string;
-    author: string;
-    created: string;
-    modified: string;
-    scale: number;
-    units: string;
-  };
-  objects: Array<{
-    id: string;
-    type: string;
-    x: number;
-    y: number;
-    [key: string]: any;
-  }>;
-  layers: Array<{
-    id: string;
-    name: string;
-    visible: boolean;
-    locked: boolean;
-    color: string;
-  }>;
-  measurements: Array<{
-    id: string;
-    type: 'linear' | 'angular' | 'area' | 'radius';
-    startPoint: { x: number; y: number };
-    endPoint?: { x: number; y: number };
-    centerPoint?: { x: number; y: number };
-    points?: Array<{ x: number; y: number }>;
-    value: number;
-    label: string;
-    units: string;
-    style: Record<string, any>;
-  }>;
-  settings: {
-    gridSize: number;
-    gridVisible: boolean;
-    snapToGrid: boolean;
-    snapToObjects: boolean;
-    backgroundImage?: {
-      src: string;
-      opacity: number;
-      scale: number;
-      position: { x: number; y: number };
-    };
-  };
+// File operations interface
+export interface FileOperationsAPI {
+  saveProject(data: ProjectData, storageType: 'local' | 'indexedDB'): Promise<void>;
+  loadProject(storageKey: string): Promise<ProjectData>;
+  listSavedProjects(): Promise<Array<{key: string, name: string, date: Date}>>;
+  exportPDF(options: PDFExportOptions): Promise<Blob>;
+  exportImage(options: ImageExportOptions): Promise<Blob>;
+  exportSVG(options: SVGExportOptions): Promise<Blob>;
+  enableAutoSave(interval: number): void;
+  disableAutoSave(): void;
+  getAutoSaveVersions(): Array<AutoSaveVersion>;
+  restoreVersion(versionId: string): Promise<ProjectData>;
+  importProject(file: File): Promise<ProjectData>;
+  importBackgroundImage(file: File): Promise<string>;
 }
-
-// Export formats
-export type ExportFormat = 'json' | 'pdf' | 'png' | 'jpg' | 'svg';
 
 // PDF export options
 export interface PDFExportOptions {
-  paperSize: 'A4' | 'A3' | 'A2' | 'A1' | 'Letter' | 'Legal' | 'Tabloid';
+  paperSize: 'A4' | 'A3' | 'Letter';
   orientation: 'portrait' | 'landscape';
-  scale: 'fit' | 'custom';
-  customScale?: number;
   includeGrid: boolean;
-  includeMeasurements: boolean;
-  includeLayers: string[];
-  margins: {
-    top: number;
-    right: number;
-    bottom: number;
-    left: number;
-  };
-  titleBlock: {
-    show: boolean;
-    title: string;
-    subtitle: string;
-    author: string;
-    date: string;
-    scale: string;
-  };
+  includeDimensions: boolean;
 }
 
 // Image export options
 export interface ImageExportOptions {
   format: 'png' | 'jpg';
-  width: number;
-  height: number;
-  quality: number; // 0-1 for JPG
+  resolution: number; // DPI
   backgroundColor: string;
-  includeGrid: boolean;
-  includeMeasurements: boolean;
-  includeLayers: string[];
-  dpi: number;
 }
 
 // SVG export options
 export interface SVGExportOptions {
-  width: number;
-  height: number;
-  includeGrid: boolean;
-  includeMeasurements: boolean;
-  includeLayers: string[];
-  embedFonts: boolean;
   precision: number;
+  embedFonts: boolean;
 }
 
-// Auto-save configuration
-export interface AutoSaveConfig {
-  enabled: boolean;
-  interval: number; // minutes
-  maxVersions: number;
-  storageType: 'localStorage' | 'indexedDB';
+// Auto-save version
+export interface AutoSaveVersion {
+  id: string;
+  timestamp: Date;
+  preview: string; // Base64 thumbnail
 }
 
-// File operations class
-export class FileOperations {
+// File operations implementation
+export class FileOperations implements FileOperationsAPI {
   private static instance: FileOperations;
   private autoSaveTimer: NodeJS.Timeout | null = null;
-  private autoSaveConfig: AutoSaveConfig = {
-    enabled: true,
-    interval: 5,
-    maxVersions: 10,
-    storageType: 'localStorage'
-  };
+  private autoSaveInterval: number = 5; // minutes
+  private maxAutoSaveVersions: number = 10;
+
+  private localStorageAdapter = new LocalStorageAdapter();
+  private indexedDBAdapter = new IndexedDBAdapter('floorPlannerDB', 1);
+
+  private constructor() {}
 
   static getInstance(): FileOperations {
     if (!FileOperations.instance) {
@@ -130,246 +68,105 @@ export class FileOperations {
     return FileOperations.instance;
   }
 
-  // Save project to JSON
-  saveProject(data: ProjectData, filename?: string): void {
-    const jsonString = JSON.stringify(data, null, 2);
-    const blob = new Blob([jsonString], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename || `floor-plan-${Date.now()}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  // Save project to storage
+  async saveProject(data: ProjectData, storageType: 'local' | 'indexedDB' = 'local'): Promise<void> {
+    const key = `project-${Date.now()}`;
+    if (storageType === 'local') {
+      await this.localStorageAdapter.save(key, data);
+    } else {
+      await this.indexedDBAdapter.save(key, data);
+    }
   }
 
-  // Load project from JSON file
-  async loadProject(file: File): Promise<ProjectData> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = JSON.parse(e.target?.result as string);
-          // Validate project data structure
-          if (this.validateProjectData(data)) {
-            resolve(data);
-          } else {
-            reject(new Error('Invalid project file format'));
-          }
-        } catch (error) {
-          reject(new Error('Failed to parse project file'));
-        }
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsText(file);
-    });
+  // Load project from storage
+  async loadProject(storageKey: string): Promise<ProjectData> {
+    if (storageKey.startsWith('local:')) {
+      return this.localStorageAdapter.load(storageKey.replace('local:', ''));
+    } else if (storageKey.startsWith('indexedDB:')) {
+      return this.indexedDBAdapter.load(storageKey.replace('indexedDB:', ''));
+    }
+    throw new Error('Invalid storage key format');
+  }
+
+  // List saved projects
+  async listSavedProjects(): Promise<Array<{key: string, name: string, date: Date}>> {
+    const localProjects = await this.localStorageAdapter.list();
+    const dbProjects = await this.indexedDBAdapter.list();
+
+    return [
+      ...localProjects.map(p => ({ ...p, key: `local:${p.key}` })),
+      ...dbProjects.map(p => ({ ...p, key: `indexedDB:${p.key}` }))
+    ];
   }
 
   // Export to PDF
-  async exportToPDF(
-    canvasElement: HTMLCanvasElement,
-    data: ProjectData,
-    options: PDFExportOptions
-  ): Promise<void> {
-    const pdf = new jsPDF({
-      orientation: options.orientation,
-      unit: 'mm',
-      format: options.paperSize.toLowerCase()
-    });
-
-    // Get page dimensions
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const contentWidth = pageWidth - options.margins.left - options.margins.right;
-    const contentHeight = pageHeight - options.margins.top - options.margins.bottom;
-
-    // Add title block if enabled
-    if (options.titleBlock.show) {
-      this.addTitleBlock(pdf, options.titleBlock, pageWidth, pageHeight);
-    }
-
-    // Calculate canvas scaling
-    const canvasAspectRatio = canvasElement.width / canvasElement.height;
-    const contentAspectRatio = contentWidth / contentHeight;
-    
-    let drawWidth, drawHeight;
-    if (canvasAspectRatio > contentAspectRatio) {
-      drawWidth = contentWidth;
-      drawHeight = contentWidth / canvasAspectRatio;
-    } else {
-      drawHeight = contentHeight;
-      drawWidth = contentHeight * canvasAspectRatio;
-    }
-
-    // Add canvas image
-    const canvasDataUrl = canvasElement.toDataURL('image/png');
-    const x = options.margins.left + (contentWidth - drawWidth) / 2;
-    const y = options.margins.top + (contentHeight - drawHeight) / 2;
-    
-    pdf.addImage(canvasDataUrl, 'PNG', x, y, drawWidth, drawHeight);
-
-    // Save PDF
-    pdf.save(`floor-plan-${Date.now()}.pdf`);
+  async exportPDF(options: PDFExportOptions): Promise<Blob> {
+    return PDFExporter.export(options);
   }
 
-  // Export to high-resolution image
-  async exportToImage(
-    canvasElement: HTMLCanvasElement,
-    options: ImageExportOptions
-  ): Promise<void> {
-    // Create high-resolution canvas
-    const highResCanvas = document.createElement('canvas');
-    const ctx = highResCanvas.getContext('2d');
-    if (!ctx) throw new Error('Failed to get canvas context');
-
-    // Set high-resolution dimensions
-    const scaleFactor = options.dpi / 96; // 96 DPI is standard screen resolution
-    highResCanvas.width = options.width * scaleFactor;
-    highResCanvas.height = options.height * scaleFactor;
-
-    // Scale context for high DPI
-    ctx.scale(scaleFactor, scaleFactor);
-
-    // Set background
-    ctx.fillStyle = options.backgroundColor;
-    ctx.fillRect(0, 0, options.width, options.height);
-
-    // Draw original canvas scaled to fit
-    const aspectRatio = canvasElement.width / canvasElement.height;
-    const targetAspectRatio = options.width / options.height;
-    
-    let drawWidth, drawHeight, offsetX = 0, offsetY = 0;
-    
-    if (aspectRatio > targetAspectRatio) {
-      drawWidth = options.width;
-      drawHeight = options.width / aspectRatio;
-      offsetY = (options.height - drawHeight) / 2;
-    } else {
-      drawHeight = options.height;
-      drawWidth = options.height * aspectRatio;
-      offsetX = (options.width - drawWidth) / 2;
-    }
-
-    ctx.drawImage(canvasElement, offsetX, offsetY, drawWidth, drawHeight);
-
-    // Convert to blob and download
-    highResCanvas.toBlob((blob) => {
-      if (!blob) throw new Error('Failed to create image blob');
-      
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `floor-plan-${Date.now()}.${options.format}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, `image/${options.format}`, options.format === 'jpg' ? options.quality : undefined);
+  // Export to image
+  async exportImage(options: ImageExportOptions): Promise<Blob> {
+    return ImageExporter.export(options);
   }
 
   // Export to SVG
-  async exportToSVG(
-    data: ProjectData,
-    options: SVGExportOptions
-  ): Promise<void> {
-    let svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg width="${options.width}" height="${options.height}" 
-     viewBox="0 0 ${options.width} ${options.height}"
-     xmlns="http://www.w3.org/2000/svg">
-`;
-
-    // Add styles
-    svg += `<defs>
-  <style>
-    .dimension-text { font-family: Arial, sans-serif; font-size: 12px; }
-    .grid-line { stroke: #e5e5e5; stroke-width: 0.5; }
-  </style>
-</defs>
-`;
-
-    // Add grid if enabled
-    if (options.includeGrid) {
-      svg += this.generateSVGGrid(data.settings.gridSize, options.width, options.height);
-    }
-
-    // Add objects
-    for (const obj of data.objects) {
-      if (options.includeLayers.includes(obj.layerId || 'default')) {
-        svg += this.objectToSVG(obj, options.precision);
-      }
-    }
-
-    // Add measurements if enabled
-    if (options.includeMeasurements) {
-      for (const measurement of data.measurements) {
-        svg += this.measurementToSVG(measurement, options.precision);
-      }
-    }
-
-    svg += '</svg>';
-
-    // Download SVG
-    const blob = new Blob([svg], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `floor-plan-${Date.now()}.svg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  async exportSVG(options: SVGExportOptions): Promise<Blob> {
+    return SVGExporter.export(options);
   }
 
-  // Auto-save functionality
-  startAutoSave(getData: () => ProjectData): void {
-    if (!this.autoSaveConfig.enabled) return;
-
-    this.stopAutoSave();
+  // Enable auto-save
+  enableAutoSave(interval: number = 5): void {
+    this.autoSaveInterval = interval;
     this.autoSaveTimer = setInterval(() => {
-      this.performAutoSave(getData());
-    }, this.autoSaveConfig.interval * 60 * 1000);
+      this.performAutoSave();
+    }, this.autoSaveInterval * 60 * 1000);
   }
 
-  stopAutoSave(): void {
+  // Disable auto-save
+  disableAutoSave(): void {
     if (this.autoSaveTimer) {
       clearInterval(this.autoSaveTimer);
       this.autoSaveTimer = null;
     }
   }
 
-  private performAutoSave(data: ProjectData): void {
-    const timestamp = new Date().toISOString();
-    const autoSaveKey = `autosave-${timestamp}`;
-    
-    try {
-      if (this.autoSaveConfig.storageType === 'localStorage') {
-        localStorage.setItem(autoSaveKey, JSON.stringify(data));
-        this.cleanupOldAutoSaves();
-      }
-      console.log('Auto-save completed:', timestamp);
-    } catch (error) {
-      console.error('Auto-save failed:', error);
-    }
-  }
-
-  private cleanupOldAutoSaves(): void {
+  // Get auto-save versions
+  getAutoSaveVersions(): AutoSaveVersion[] {
     const keys = Object.keys(localStorage).filter(key => key.startsWith('autosave-'));
-    if (keys.length > this.autoSaveConfig.maxVersions) {
-      keys.sort().slice(0, keys.length - this.autoSaveConfig.maxVersions).forEach(key => {
-        localStorage.removeItem(key);
-      });
-    }
-  }
-
-  getAutoSaveVersions(): Array<{ key: string; timestamp: string; data: ProjectData }> {
-    const keys = Object.keys(localStorage).filter(key => key.startsWith('autosave-'));
-    return keys.sort().reverse().map(key => ({
-      key,
-      timestamp: key.replace('autosave-', ''),
-      data: JSON.parse(localStorage.getItem(key) || '{}')
+    return keys.map(key => ({
+      id: key,
+      timestamp: new Date(key.replace('autosave-', '')),
+      preview: '' // Placeholder - would generate thumbnail in real implementation
     }));
+  }
+
+  // Restore auto-save version
+  async restoreVersion(versionId: string): Promise<ProjectData> {
+    const data = localStorage.getItem(versionId);
+    if (!data) throw new Error('Version not found');
+    return JSON.parse(data);
+  }
+
+  // Import project file
+  async importProject(file: File): Promise<ProjectData> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target?.result as string);
+          const { error } = ProjectDataSchema.validate(data);
+          if (error) {
+            reject(new Error(`Invalid project file: ${error.message}`));
+          } else {
+            resolve(data);
+          }
+        } catch (err) {
+          reject(new Error('Failed to parse project file'));
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsText(file);
+    });
   }
 
   // Import background image
@@ -384,111 +181,26 @@ export class FileOperations {
     });
   }
 
-  // Helper methods
-  private validateProjectData(data: any): boolean {
-    return (
-      data &&
-      typeof data === 'object' &&
-      data.version &&
-      data.metadata &&
-      Array.isArray(data.objects) &&
-      Array.isArray(data.layers) &&
-      Array.isArray(data.measurements) &&
-      data.settings
-    );
-  }
-
-  private addTitleBlock(
-    pdf: jsPDF,
-    titleBlock: PDFExportOptions['titleBlock'],
-    pageWidth: number,
-    pageHeight: number
-  ): void {
-    const blockHeight = 30;
-    const blockY = pageHeight - blockHeight - 10;
-    
-    // Draw title block border
-    pdf.rect(10, blockY, pageWidth - 20, blockHeight);
-    
-    // Add title block content
-    pdf.setFontSize(16);
-    pdf.text(titleBlock.title, 15, blockY + 8);
-    
-    pdf.setFontSize(12);
-    pdf.text(titleBlock.subtitle, 15, blockY + 16);
-    
-    pdf.setFontSize(10);
-    pdf.text(`Author: ${titleBlock.author}`, 15, blockY + 24);
-    pdf.text(`Date: ${titleBlock.date}`, pageWidth / 2, blockY + 24);
-    pdf.text(`Scale: ${titleBlock.scale}`, pageWidth - 50, blockY + 24);
-  }
-
-  private generateSVGGrid(gridSize: number, width: number, height: number): string {
-    let grid = '<g class="grid">\n';
-    
-    // Vertical lines
-    for (let x = 0; x <= width; x += gridSize) {
-      grid += `  <line x1="${x}" y1="0" x2="${x}" y2="${height}" class="grid-line"/>\n`;
-    }
-    
-    // Horizontal lines
-    for (let y = 0; y <= height; y += gridSize) {
-      grid += `  <line x1="0" y1="${y}" x2="${width}" y2="${y}" class="grid-line"/>\n`;
-    }
-    
-    grid += '</g>\n';
-    return grid;
-  }
-
-  private objectToSVG(obj: any, precision: number): string {
-    const x = Number(obj.x.toFixed(precision));
-    const y = Number(obj.y.toFixed(precision));
-    
-    switch (obj.type) {
-      case 'rectangle':
-        return `<rect x="${x}" y="${y}" width="${obj.width}" height="${obj.height}" 
-                fill="${obj.fill}" stroke="${obj.stroke}" stroke-width="${obj.strokeWidth}"/>\n`;
-      
-      case 'circle':
-        return `<circle cx="${x}" cy="${y}" r="${obj.radius}" 
-                fill="${obj.fill}" stroke="${obj.stroke}" stroke-width="${obj.strokeWidth}"/>\n`;
-      
-      case 'line':
-      case 'wall':
-        const points = obj.points || [0, 0, 0, 0];
-        return `<line x1="${x + points[0]}" y1="${y + points[1]}" 
-                x2="${x + points[2]}" y2="${y + points[3]}" 
-                stroke="${obj.stroke}" stroke-width="${obj.strokeWidth}"/>\n`;
-      
-      default:
-        return '';
+  // Internal auto-save implementation
+  private async performAutoSave(): Promise<void> {
+    try {
+      const projectData = {} as ProjectData; // Would get from state in real implementation
+      const timestamp = new Date().toISOString();
+      const autoSaveKey = `autosave-${timestamp}`;
+      localStorage.setItem(autoSaveKey, JSON.stringify(projectData));
+      this.cleanupOldAutoSaves();
+    } catch (error) {
+      console.error('Auto-save failed:', error);
     }
   }
 
-  private measurementToSVG(measurement: any, precision: number): string {
-    // Simplified measurement rendering for SVG
-    if (measurement.type === 'linear' && measurement.startPoint && measurement.endPoint) {
-      const x1 = Number(measurement.startPoint.x.toFixed(precision));
-      const y1 = Number(measurement.startPoint.y.toFixed(precision));
-      const x2 = Number(measurement.endPoint.x.toFixed(precision));
-      const y2 = Number(measurement.endPoint.y.toFixed(precision));
-      
-      return `<g class="measurement">
-        <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" 
-              stroke="${measurement.style.color}" stroke-width="2" stroke-dasharray="5,5"/>
-        <text x="${(x1 + x2) / 2}" y="${(y1 + y2) / 2 - 5}" class="dimension-text" 
-              fill="${measurement.style.color}">${measurement.label}</text>
-      </g>\n`;
+  // Clean up old auto-saves
+  private cleanupOldAutoSaves(): void {
+    const keys = Object.keys(localStorage).filter(key => key.startsWith('autosave-'));
+    if (keys.length > this.maxAutoSaveVersions) {
+      keys.sort()
+        .slice(0, keys.length - this.maxAutoSaveVersions)
+        .forEach(key => localStorage.removeItem(key));
     }
-    return '';
-  }
-
-  // Configuration methods
-  setAutoSaveConfig(config: Partial<AutoSaveConfig>): void {
-    this.autoSaveConfig = { ...this.autoSaveConfig, ...config };
-  }
-
-  getAutoSaveConfig(): AutoSaveConfig {
-    return { ...this.autoSaveConfig };
   }
 }

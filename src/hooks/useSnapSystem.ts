@@ -30,6 +30,13 @@ interface SnapResult {
   snapPoints: SnapPoint[];
   isSnapped: boolean;
   snapType?: string;
+  guideId?: string;
+}
+
+interface Guide {
+  id: string;
+  type: 'vertical' | 'horizontal';
+  position: number;
 }
 
 interface UseSnapSystemProps {
@@ -38,7 +45,7 @@ interface UseSnapSystemProps {
   snapToGrid: boolean;
   snapToObjects: boolean;
   snapTolerance: number;
-  guides: Array<{ x?: number; y?: number; type: 'vertical' | 'horizontal' }>;
+  guides: Guide[];
 }
 
 export const useSnapSystem = ({
@@ -49,14 +56,14 @@ export const useSnapSystem = ({
   snapTolerance = 10,
   guides = []
 }: UseSnapSystemProps) => {
-  
+
   // Generate grid snap points around a position
   const getGridSnapPoints = useCallback((x: number, y: number): SnapPoint[] => {
     if (!snapToGrid) return [];
-    
+
     const gridX = Math.round(x / gridSize) * gridSize;
     const gridY = Math.round(y / gridSize) * gridSize;
-    
+
     return [{
       x: gridX,
       y: gridY,
@@ -68,20 +75,20 @@ export const useSnapSystem = ({
   // Generate object snap points
   const getObjectSnapPoints = useCallback((targetX: number, targetY: number): SnapPoint[] => {
     if (!snapToObjects) return [];
-    
+
     const snapPoints: SnapPoint[] = [];
-    
+
     objects.forEach(obj => {
       // Skip if object is too far away to consider
       const distance = Math.sqrt(
         Math.pow(obj.x - targetX, 2) + Math.pow(obj.y - targetY, 2)
       );
       if (distance > snapTolerance * 5) return;
-      
+
       if (obj.type === 'rectangle') {
         const width = obj.width || 0;
         const height = obj.height || 0;
-        
+
         // Corners
         snapPoints.push(
           { x: obj.x, y: obj.y, type: 'object-corner', objectId: obj.id, description: 'Top-left corner' },
@@ -89,7 +96,7 @@ export const useSnapSystem = ({
           { x: obj.x, y: obj.y + height, type: 'object-corner', objectId: obj.id, description: 'Bottom-left corner' },
           { x: obj.x + width, y: obj.y + height, type: 'object-corner', objectId: obj.id, description: 'Bottom-right corner' }
         );
-        
+
         // Centers
         snapPoints.push(
           { x: obj.x + width / 2, y: obj.y + height / 2, type: 'object-center', objectId: obj.id, description: 'Center' },
@@ -100,7 +107,7 @@ export const useSnapSystem = ({
         );
       } else if (obj.type === 'circle') {
         const radius = obj.radius || 0;
-        
+
         // Center and cardinal points
         snapPoints.push(
           { x: obj.x, y: obj.y, type: 'object-center', objectId: obj.id, description: 'Center' },
@@ -115,13 +122,13 @@ export const useSnapSystem = ({
         const startY = obj.y + points[1];
         const endX = obj.x + points[2];
         const endY = obj.y + points[3];
-        
+
         // Line endpoints
         snapPoints.push(
           { x: startX, y: startY, type: 'object-corner', objectId: obj.id, description: 'Line start' },
           { x: endX, y: endY, type: 'object-corner', objectId: obj.id, description: 'Line end' }
         );
-        
+
         // Line midpoint
         snapPoints.push({
           x: (startX + endX) / 2,
@@ -132,58 +139,56 @@ export const useSnapSystem = ({
         });
       }
     });
-    
+
     return snapPoints;
   }, [objects, snapToObjects, snapTolerance]);
 
   // Generate guide snap points
   const getGuideSnapPoints = useCallback((targetX: number, targetY: number): SnapPoint[] => {
-    const snapPoints: SnapPoint[] = [];
-    
-    guides.forEach((guide, index) => {
-      if (guide.type === 'vertical' && guide.x !== undefined) {
-        snapPoints.push({
-          x: guide.x,
+    return guides.map(guide => {
+      if (guide.type === 'vertical') {
+        return {
+          x: guide.position,
           y: targetY,
-          type: 'guide',
-          description: `Vertical guide ${index + 1}`
-        });
-      } else if (guide.type === 'horizontal' && guide.y !== undefined) {
-        snapPoints.push({
+          type: 'guide' as const,
+          objectId: guide.id,
+          description: `Vertical guide ${guide.id}`
+        };
+      } else {
+        return {
           x: targetX,
-          y: guide.y,
-          type: 'guide',
-          description: `Horizontal guide ${index + 1}`
-        });
+          y: guide.position,
+          type: 'guide' as const,
+          objectId: guide.id,
+          description: `Horizontal guide ${guide.id}`
+        };
       }
     });
-    
-    return snapPoints;
   }, [guides]);
 
   // Find intersections between lines
   const getIntersectionSnapPoints = useCallback((targetX: number, targetY: number): SnapPoint[] => {
     if (!snapToObjects) return [];
-    
+
     const snapPoints: SnapPoint[] = [];
     const lines = objects.filter(obj => obj.type === 'line' || obj.type === 'wall');
-    
+
     // Check intersections between all line pairs
     for (let i = 0; i < lines.length; i++) {
       for (let j = i + 1; j < lines.length; j++) {
         const line1 = lines[i];
         const line2 = lines[j];
-        
+
         const points1 = line1.points || [0, 0, 0, 0];
         const points2 = line2.points || [0, 0, 0, 0];
-        
+
         const intersection = getLineIntersection(
           { x: line1.x + points1[0], y: line1.y + points1[1] },
           { x: line1.x + points1[2], y: line1.y + points1[3] },
           { x: line2.x + points2[0], y: line2.y + points2[1] },
           { x: line2.x + points2[2], y: line2.y + points2[3] }
         );
-        
+
         if (intersection) {
           // Only add if intersection is close to target
           const distance = Math.sqrt(
@@ -200,7 +205,7 @@ export const useSnapSystem = ({
         }
       }
     }
-    
+
     return snapPoints;
   }, [objects, snapToObjects, snapTolerance]);
 
@@ -208,10 +213,10 @@ export const useSnapSystem = ({
   const getLineIntersection = (p1: Point, p2: Point, p3: Point, p4: Point): Point | null => {
     const denom = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
     if (Math.abs(denom) < 1e-10) return null; // Lines are parallel
-    
+
     const t = ((p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)) / denom;
     const u = -((p1.x - p2.x) * (p1.y - p3.y) - (p1.y - p2.y) * (p1.x - p3.x)) / denom;
-    
+
     // Check if intersection is within both line segments
     if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
       return {
@@ -219,43 +224,52 @@ export const useSnapSystem = ({
         y: p1.y + t * (p2.y - p1.y)
       };
     }
-    
+
     return null;
   };
 
   // Main snap function
   const snapPoint = useCallback((x: number, y: number): SnapResult => {
-    const allSnapPoints: SnapPoint[] = [
-      ...getGridSnapPoints(x, y),
-      ...getObjectSnapPoints(x, y),
-      ...getGuideSnapPoints(x, y),
-      ...getIntersectionSnapPoints(x, y)
+    // Get all possible snap points
+    const gridPoints = getGridSnapPoints(x, y);
+    const objectPoints = getObjectSnapPoints(x, y);
+    const guidePoints = getGuideSnapPoints(x, y);
+    const intersectionPoints = getIntersectionSnapPoints(x, y);
+
+    // Combine all points with priority: guides > intersections > objects > grid
+    const allSnapPoints = [
+      ...guidePoints,
+      ...intersectionPoints,
+      ...objectPoints,
+      ...gridPoints
     ];
-    
+
     // Find the closest snap point within tolerance
     let closestSnap: SnapPoint | null = null;
     let minDistance = snapTolerance;
-    
+
     allSnapPoints.forEach(snapPoint => {
       const distance = Math.sqrt(
         Math.pow(snapPoint.x - x, 2) + Math.pow(snapPoint.y - y, 2)
       );
-      
+
       if (distance < minDistance) {
         minDistance = distance;
         closestSnap = snapPoint;
       }
     });
-    
+
     if (closestSnap) {
+      const { x, y, type, objectId } = closestSnap;
       return {
-        point: { x: closestSnap.x, y: closestSnap.y },
+        point: { x, y },
         snapPoints: [closestSnap],
         isSnapped: true,
-        snapType: closestSnap.type
+        snapType: type,
+        guideId: type === 'guide' ? objectId : undefined
       };
     }
-    
+
     return {
       point: { x, y },
       snapPoints: allSnapPoints,
@@ -277,25 +291,25 @@ export const useSnapSystem = ({
   ): { start?: CanvasObject; end?: CanvasObject } => {
     const walls = existingObjects.filter(obj => obj.type === 'wall' || obj.type === 'line');
     const connections: { start?: CanvasObject; end?: CanvasObject } = {};
-    
+
     walls.forEach(wall => {
       const points = wall.points || [0, 0, 0, 0];
       const wallStart = { x: wall.x + points[0], y: wall.y + points[1] };
       const wallEnd = { x: wall.x + points[2], y: wall.y + points[3] };
-      
+
       // Check if new wall start connects to existing wall
       if (getDistance(newWallStart, wallStart) <= snapTolerance ||
           getDistance(newWallStart, wallEnd) <= snapTolerance) {
         connections.start = wall;
       }
-      
+
       // Check if new wall end connects to existing wall
       if (getDistance(newWallEnd, wallStart) <= snapTolerance ||
           getDistance(newWallEnd, wallEnd) <= snapTolerance) {
         connections.end = wall;
       }
     });
-    
+
     return connections;
   }, [snapTolerance]);
 
