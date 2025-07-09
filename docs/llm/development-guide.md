@@ -1,5 +1,30 @@
 # Development Guide
 
+## Current Architecture Overview
+
+### Key Implementation Patterns Used
+- **Context + Reducer**: FloorPlanContext with unlimited history management
+- **Component Composition**: Feature-based organization with ui/, canvas/, tools/
+- **Type-Safe MEP Integration**: Electrical, HVAC, Plumbing systems with proper interfaces
+- **Validation System**: Real-time validation with comprehensive rule sets
+- **Canvas Optimization**: Konva.js with layer management and performance optimizations
+
+### Active TODO Items to Address
+```typescript
+// From FloorPlanApp.tsx - Priority implementation targets
+const handleSave = () => {
+  // TODO: Implement save functionality - Connect to FileOperationsContext
+};
+
+const handleLoad = () => {
+  // TODO: Implement load functionality - Use existing storage utilities
+};
+
+const handleExport = () => {
+  // TODO: Implement export functionality - Connect to existing PDF/PNG exporters
+};
+```
+
 ## Code Standards & Best Practices
 
 ### TypeScript Guidelines
@@ -70,19 +95,48 @@ src/
 
 ## 2. Implementation Patterns
 
-### Standard Component Pattern
+### Standard Component Pattern (Current Implementation)
 ```typescript
+// Follow existing patterns from WallTool.tsx, DoorTool.tsx
 interface ToolProps {
   isActive: boolean;
   onComplete?: (object: FloorPlanObject) => void;
 }
 
 export const ToolComponent: React.FC<ToolProps> = ({ isActive, onComplete }) => {
-  const { state, dispatch } = useFloorPlanContext();
+  const { state, addObject, updateObject } = useFloorPlanContext();
+  const { activeTool, setActiveTool } = useToolContext();
   const [isDrawing, setIsDrawing] = useState(false);
+
+  // Use existing validation hooks
+  const { validateObject } = useValidationRules();
+  
+  // Follow established object creation pattern
+  const createObject = useCallback((position: Point) => {
+    const newObject: FloorPlanObject = {
+      id: `${Date.now()}-${Math.random()}`,
+      type: 'your-type',
+      position,
+      rotation: 0,
+      scale: { x: 1, y: 1 },
+      visible: true,
+      locked: false,
+      layerId: state.activeLayerId,
+      properties: {},
+      metadata: {
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        version: 1
+      }
+    };
+    
+    addObject(newObject);
+    onComplete?.(newObject);
+  }, [addObject, onComplete, state.activeLayerId]);
 
   return (
     <div className="tool-component">
+      {/* Follow ResponsiveToolbar patterns for UI */}
     </div>
   );
 };

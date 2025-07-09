@@ -1,5 +1,22 @@
 # Troubleshooting Guide
 
+## Current Implementation Context
+
+### Application Architecture
+- **State Management**: FloorPlanContext with unlimited undo/redo
+- **Canvas System**: Konva.js with optimized layer management
+- **Validation**: Real-time validation with comprehensive rule sets
+- **File Operations**: IndexedDB and localStorage integration
+- **MEP Systems**: Electrical, HVAC, Plumbing type definitions
+
+### Known TODO Items
+Before reporting bugs, check if the issue is a known TODO item:
+- Save/Load functionality (UI exists, implementation needed)
+- Export dialog functionality (UI exists, backend needed)
+- Grid toggle implementation
+- Enhanced snap system
+- Guides panel functionality
+
 ## Common Issues & Solutions
 
 ### Canvas & Rendering Issues
